@@ -6,125 +6,46 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/components/climate/climate_traits.h"
-#include "esphome/components/custom/climate/custom_climate.h"
+#include "messages.h"
 
 namespace esphome {
 namespace comfoair {
-
-static const char *TAG = "comfoair";
-
-static const uint8_t COMFOAIR_MSG_HEAD_LENGTH = 5;
-static const uint8_t COMFOAIR_MSG_TAIL_LENGTH = 3;
-static const uint8_t COMFOAIR_MSG_PREFIX = 0x07;
-static const uint8_t COMFOAIR_MSG_HEAD = 0xf0;
-static const uint8_t COMFOAIR_MSG_TAIL = 0x0f;
-static const uint8_t COMFOAIR_MSG_ACK = 0xf3;
-static const uint8_t COMFOAIR_MSG_IDENTIFIER_IDX = 3;
-static const uint8_t COMFOAIR_MSG_DATA_LENGTH_IDX = 4;
-static const uint8_t COMFOAIR_MSG_ACK_IDX = 1;
-
-static const uint8_t COMFOAIR_GET_BOOTLOADER_VERSION_REQUEST = 0x67;
-static const uint8_t COMFOAIR_GET_BOOTLOADER_VERSION_RESPONSE = 0x68;
-static const uint8_t COMFOAIR_GET_BOOTLOADER_VERSION_LENGTH = 13;
-static const uint8_t COMFOAIR_GET_FIRMWARE_VERSION_REQUEST = 0x69;
-static const uint8_t COMFOAIR_GET_FIRMWARE_VERSION_RESPONSE = 0x6a;
-static const uint8_t COMFOAIR_GET_FIRMWARE_VERSION_LENGTH = 13;
-static const uint8_t COMFOAIR_GET_BOARD_VERSION_REQUEST = 0xa1;
-static const uint8_t COMFOAIR_GET_BOARD_VERSION_RESPONSE = 0xa2;
-static const uint8_t COMFOAIR_GET_BOARD_VERSION_LENGTH = 14;
-
-static const uint8_t COMFOAIR_SET_RS232_MODE_REQUEST = 0x9b;
-static const uint8_t COMFOAIR_SET_RS232_MODE_RESPONSE = 0x9c;
-static const uint8_t COMFOAIR_SET_RS232_MODE_LENGTH = 0x01;
-
-static const uint8_t COMFOAIR_GET_INPUTS_REQUEST = 0x03;
-static const uint8_t COMFOAIR_GET_INPUTS_RESPONSE = 0x04;
-static const uint8_t COMFOAIR_GET_INPUTS_LENGTH = 0x02;
-static const uint8_t COMFOAIR_GET_FAN_STATUS_REQUEST = 0x0b;
-static const uint8_t COMFOAIR_GET_FAN_STATUS_RESPONSE = 0x0c;
-static const uint8_t COMFOAIR_GET_FAN_STATUS_LENGTH = 0x06;
-static const uint8_t COMFOAIR_GET_VALVE_STATUS_REQUEST = 0x0d;
-static const uint8_t COMFOAIR_GET_VALVE_STATUS_RESPONSE = 0x0e;
-static const uint8_t COMFOAIR_GET_VALVE_STATUS_LENGTH = 0x04;
-static const uint8_t COMFOAIR_GET_TEMPERATURE_REQUEST = 0x0f;
-static const uint8_t COMFOAIR_GET_TEMPERATURE_RESPONSE = 0x10;
-static const uint8_t COMFOAIR_GET_TEMPERATURE_LENGTH = 0x04;
-static const uint8_t COMFOAIR_GET_BUTTON_STATUS_REQUEST = 0x11;
-static const uint8_t COMFOAIR_GET_BUTTON_STATUS_RESPONSE = 0x12;
-static const uint8_t COMFOAIR_GET_BUTTON_STATUS_LENGTH = 0x01;
-static const uint8_t COMFOAIR_GET_ANALOG_INPUTS_REQUEST = 0x13;
-static const uint8_t COMFOAIR_GET_ANALOG_INPUTS_RESPONSE = 0x14;
-static const uint8_t COMFOAIR_GET_ANALOG_INPUTS_LENGTH = 0x04;
-static const uint8_t COMFOAIR_GET_SENSOR_DATA_REQUEST = 0x97;
-static const uint8_t COMFOAIR_GET_SENSOR_DATA_RESPONSE = 0x98;
-static const uint8_t COMFOAIR_GET_SENSOR_DATA_LENGTH = 0x11;
-static const uint8_t COMFOAIR_GET_ANALOG_STATUS_REQUEST = 0x9d;
-static const uint8_t COMFOAIR_GET_ANALOG_STATUS_RESPONSE = 0x9e;
-static const uint8_t COMFOAIR_GET_ANALOG_STATUS_LENGTH = 0x0a;
-static const uint8_t COMFOAIR_GET_DELAYS_REQUEST = 0xc9;
-static const uint8_t COMFOAIR_GET_DELAYS_RESPONSE = 0xca;
-static const uint8_t COMFOAIR_GET_DELAYS_LENGTH = 0x08;
-static const uint8_t COMFOAIR_GET_VENTILATION_LEVEL_REQUEST = 0xcd;
-static const uint8_t COMFOAIR_GET_VENTILATION_LEVEL_RESPONSE = 0xce;
-static const uint8_t COMFOAIR_GET_VENTILATION_LEVEL_LENGTH = 0x0e;
-static const uint8_t COMFOAIR_GET_TEMPERATURES_REQUEST = 0xd1;
-static const uint8_t COMFOAIR_GET_TEMPERATURES_RESPONSE = 0xd2;
-static const uint8_t COMFOAIR_GET_TEMPERATURES_LENGTH = 0x09;
-static const uint8_t COMFOAIR_GET_MAIN_STATUS_REQUEST = 0xd5;
-static const uint8_t COMFOAIR_GET_MAIN_STATUS_RESPONSE = 0xd6;
-static const uint8_t COMFOAIR_GET_MAIN_STATUS_LENGTH = 0x0b;
-static const uint8_t COMFOAIR_GET_ERROR_STATE_REQUEST = 0xd9;
-static const uint8_t COMFOAIR_GET_ERROR_STATE_RESPONSE = 0xda;
-static const uint8_t COMFOAIR_GET_ERROR_STATE_LENGTH = 0x11;
-static const uint8_t COMFOAIR_GET_OPERATING_HOURS_REQUEST = 0xdd;
-static const uint8_t COMFOAIR_GET_OPERATING_HOURS_RESPONSE = 0xde;
-static const uint8_t COMFOAIR_GET_OPERATING_HOURS_LENGTH = 0x14;
-static const uint8_t COMFOAIR_GET_BYPASS_CONTROL_REQUEST = 0xdf;
-static const uint8_t COMFOAIR_GET_BYPASS_CONTROL_RESPONSE = 0xe0;
-static const uint8_t COMFOAIR_GET_BYPASS_CONTROL_LENGTH = 0x07;
-static const uint8_t COMFOAIR_GET_PREHEATER_STATUS_REQUEST = 0xe1;
-static const uint8_t COMFOAIR_GET_PREHEATER_STATUS_RESPONSE = 0xe2;
-static const uint8_t COMFOAIR_GET_PREHEATER_STATUS_LENGTH = 0x06;
-static const uint8_t COMFOAIR_GET_RF_STATUS_REQUEST = 0xe5;
-static const uint8_t COMFOAIR_GET_RF_STATUS_RESPONSE = 0xe6;
-static const uint8_t COMFOAIR_GET_RF_STATUS_LENGTH = 0x07;
-static const uint8_t COMFOAIR_GET_LAST_PREHEATING_REQUEST = 0xe9;
-static const uint8_t COMFOAIR_GET_LAST_PREHEATING_RESPONSE = 0xea;
-static const uint8_t COMFOAIR_GET_LAST_PREHEATING_LENGTH = 0x08;
-static const uint8_t COMFOAIR_GET_EWT_REHEATER_REQUEST = 0xeb;
-static const uint8_t COMFOAIR_GET_EWT_REHEATER_RESPONSE = 0xec;
-static const uint8_t COMFOAIR_GET_EWT_REHEATER_LENGTH = 0x07;
-
-// requests with ACK response
-static const uint8_t COMFOAIR_SET_LEVEL_REQUEST = 0x99;
-static const uint8_t COMFOAIR_SET_LEVEL_LENGTH = 0x01;
-static const uint8_t COMFOAIR_SET_ANALOG_VALUES_REQUEST = 0x9f;
-static const uint8_t COMFOAIR_SET_ANALOG_VALUES_LENGTH = 0x13;
-static const uint8_t COMFOAIR_SET_DELAYS_REQUEST = 0xcb;
-static const uint8_t COMFOAIR_SET_DELAYS_LENGTH = 0x08;
-static const uint8_t COMFOAIR_SET_VENTILATION_LEVEL_REQUEST = 0xcf;
-static const uint8_t COMFOAIR_SET_VENTILATION_LEVEL_LENGTH = 0x09;
-static const uint8_t COMFOAIR_SET_COMFORT_TEMPERATURE_REQUEST = 0xd3;
-static const uint8_t COMFOAIR_SET_COMFORT_TEMPERATURE_LENGTH = 0x01;
-static const uint8_t COMFOAIR_SET_MAIN_STATUS_REQUEST = 0xd7;
-static const uint8_t COMFOAIR_SET_MAIN_STATUS_LENGTH = 0x08;
-static const uint8_t COMFOAIR_SET_RESET_REQUEST = 0xdb;
-static const uint8_t COMFOAIR_SET_RESET_LENGTH = 0x04;
-static const uint8_t COMFOAIR_SET_EWT_REHEATER_REQUEST = 0xed;
-static const uint8_t COMFOAIR_SET_EWT_REHEATER_LENGTH = 0x05;
-
-// Specials setters
-static const uint8_t COMFOAIR_SET_TEST_MODE_START_REQUEST = 0x01;
-static const uint8_t COMFOAIR_SET_TEST_MODE_END_REQUEST = 0x19;
-static const uint8_t COMFOAIR_SET_OUTPUTS_REQUEST = 0x05;
-static const uint8_t COMFOAIR_SET_ANALOG_OUTPUTS_REQUEST = 0x07;
-static const uint8_t COMFOAIR_SET_VALVES_REQUEST = 0x09;
-
-class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTDevice {
- public:
+class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {
+public:
 
   // Poll every 600ms
-  ComfoAirComponent(UARTComponent *parent) : Climate("comfoair"), PollingComponent(600), UARTDevice(parent) { }
+  ComfoAirComponent() : 
+  Climate(), 
+  PollingComponent(600),
+  UARTDevice() { 
+    /**fan_supply_air_percentage = new sensor::Sensor("Comfoair Fan Supply Air");
+    fan_exhaust_air_percentage = new sensor::Sensor("Comfoair Fan Exhaust Air");
+    fan_speed_supply = new sensor::Sensor("Comfoair Fan Speed Supply");
+    fan_speed_exhaust = new sensor::Sensor("Comfoair Fan Speed Exhaust");
+    outside_air_temperature = new sensor::Sensor("Comfoair Outside Air");
+    supply_air_temperature = new sensor::Sensor("Comfoair Supply Air");
+    return_air_temperature = new sensor::Sensor("Comfoair Return Air");
+    exhaust_air_temperature = new sensor::Sensor("Comfoair Exhaust Air");
+    enthalpy_temperature = new sensor::Sensor("Comfoair Enthalapy Temp");
+    ewt_temperature = new sensor::Sensor("Comfoair EWT");
+    reheating_temperature = new sensor::Sensor("Comfoair Reheating Temp");
+    kitchen_hood_temperature = new sensor::Sensor("Comfoair Kitchen Hood Air");
+    return_air_level = new sensor::Sensor("Comfoair Return Air Level");
+    supply_air_level = new sensor::Sensor("Comfoair Suply Air Level");
+    bypass_factor = new sensor::Sensor("Comfoair bypass factor");
+    bypass_step = new sensor::Sensor("Comfoair bypass step");
+    bypass_correction = new sensor::Sensor("Comfoair bypass correction");
+    is_bypass_valve_open = new binary_sensor::BinarySensor();
+    is_bypass_valve_open.set_name("Comfoair Bypass Valve");
+    is_preheating = new binary_sensor::BinarySensor();
+    is_preheating->set_name("Comfoair Preheating");
+    is_supply_fan_active = new binary_sensor::BinarySensor();
+    is_supply_fan_active->set_name("Comfoair Supply Fan");
+    is_filter_full = new binary_sensor::BinarySensor();
+    is_filter_full->set_name("Comfoair Filter Full");
+    is_summer_mode = new binary_sensor::BinarySensor();
+    is_summer_mode->set_name("Comfoair Summer Mode");**/
+  }
 
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
@@ -140,7 +61,7 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
     traits.set_supports_action(false);
     traits.set_visual_min_temperature(12);
     traits.set_visual_max_temperature(29);
-    traits.set_visual_temperature_step(1);
+    //traits.set_visual_tXComfoAirComponentemperature_step(1);
     traits.set_supported_fan_modes({
       climate::CLIMATE_FAN_FOCUS,
       climate::CLIMATE_FAN_AUTO,
@@ -202,7 +123,7 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
   void dump_config() override {
     uint8_t *p;
     ESP_LOGCONFIG(TAG, "ComfoAir:");
-    LOG_UPDATE_INTERVAL(this);
+    //LOG_UPDATE_INTERVAL(this);
     p = bootloader_version_;
     ESP_LOGCONFIG(TAG, "  Bootloader %.10s v%0d.%02d b%2d", p + 3, *p, *(p + 1), *(p + 2));
     p = firmware_version_;
@@ -219,7 +140,7 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
     this->check_uart_settings(9600);
   }
 
-  void update() override {
+  void update()  {
     switch(update_counter_) {
       case -3:
         this->write_command_(COMFOAIR_GET_BOOTLOADER_VERSION_REQUEST, nullptr, 0);
@@ -287,7 +208,10 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 
- protected:
+  void set_name(const char* value) {}
+  void set_uart_component(uart::UARTComponent *parent) {this->set_uart_parent(parent);}
+
+protected:
 
   void set_level_(int level) {
     if (level < 0 || level > 5) {
@@ -597,9 +521,9 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
 
   void get_bypass_control_status_() {
     if (this->bypass_factor != nullptr ||
-       this->bypass_step != nullptr ||
-       this->bypass_correction != nullptr ||
-       this->is_summer_mode != nullptr) {
+      this->bypass_step != nullptr ||
+      this->bypass_correction != nullptr ||
+      this->is_summer_mode != nullptr) {
       ESP_LOGD(TAG, "getting bypass control");
       this->write_command_(COMFOAIR_GET_BYPASS_CONTROL_REQUEST, nullptr, 0);
     }
@@ -607,9 +531,9 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
 
   void get_temperature_() {
     if (this->outside_air_temperature != nullptr ||
-       this->supply_air_temperature != nullptr ||
-       this->return_air_temperature != nullptr ||
-       this->outside_air_temperature != nullptr) {
+      this->supply_air_temperature != nullptr ||
+      this->return_air_temperature != nullptr ||
+      this->outside_air_temperature != nullptr) {
       ESP_LOGD(TAG, "getting temperature");
       this->write_command_(COMFOAIR_GET_TEMPERATURE_REQUEST, nullptr, 0);
     }
@@ -648,7 +572,7 @@ class ComfoAirComponent : public climate::Climate, PollingComponent, uart::UARTD
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
 
-public:
+public: 
   sensor::Sensor *fan_supply_air_percentage{nullptr};
   sensor::Sensor *fan_exhaust_air_percentage{nullptr};
   sensor::Sensor *fan_speed_supply{nullptr};
@@ -671,6 +595,29 @@ public:
   sensor::Sensor *bypass_step{nullptr};
   sensor::Sensor *bypass_correction{nullptr};
   binary_sensor::BinarySensor *is_summer_mode{nullptr};
+
+  void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
+  void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };
+  void set_fan_speed_supply(sensor::Sensor *fan_speed_supply) {this->fan_speed_supply =fan_speed_supply; };
+  void set_fan_speed_exhaust(sensor::Sensor *fan_speed_exhaust) {this->fan_speed_exhaust =fan_speed_exhaust; };
+  void set_is_bypass_valve_open(binary_sensor::BinarySensor *is_bypass_valve_open) {this->is_bypass_valve_open =is_bypass_valve_open; };
+  void set_is_preheating(binary_sensor::BinarySensor *is_preheating) {this->is_preheating =is_preheating; };
+  void set_outside_air_temperature(sensor::Sensor *outside_air_temperature) {this->outside_air_temperature =outside_air_temperature; };
+  void set_supply_air_temperature(sensor::Sensor *supply_air_temperature) {this->supply_air_temperature =supply_air_temperature; };
+  void set_return_air_temperature(sensor::Sensor *return_air_temperature) {this->return_air_temperature =return_air_temperature; };
+  void set_exhaust_air_temperature(sensor::Sensor *exhaust_air_temperature) {this->exhaust_air_temperature =exhaust_air_temperature; };
+  void set_enthalpy_temperature(sensor::Sensor *enthalpy_temperature) {this->enthalpy_temperature =enthalpy_temperature; };
+  void set_ewt_temperature(sensor::Sensor *ewt_temperature) {this->ewt_temperature =ewt_temperature; };
+  void set_reheating_temperature(sensor::Sensor *reheating_temperature) {this->reheating_temperature =reheating_temperature; };
+  void set_kitchen_hood_temperature(sensor::Sensor *kitchen_hood_temperature) {this->kitchen_hood_temperature =kitchen_hood_temperature; };
+  void set_return_air_level(sensor::Sensor *return_air_level) {this->return_air_level =return_air_level; };
+  void set_supply_air_level(sensor::Sensor *supply_air_level) {this->supply_air_level =supply_air_level; };
+  void set_is_supply_fan_active(binary_sensor::BinarySensor *is_supply_fan_active) {this->is_supply_fan_active =is_supply_fan_active; };
+  void set_is_filter_full(binary_sensor::BinarySensor *is_filter_full) {this->is_filter_full =is_filter_full; };
+  void set_bypass_factor(sensor::Sensor *bypass_factor) {this->bypass_factor = bypass_factor; };
+  void set_bypass_step(sensor::Sensor *bypass_step) {this->bypass_step = bypass_step; };
+  void set_bypass_correction(sensor::Sensor *bypass_correction) {this->bypass_correction = bypass_correction; };
+  void set_is_summer_mode(binary_sensor::BinarySensor *is_summer_mode) {this->is_summer_mode = is_summer_mode; };
 };
 
 }  // namespace comfoair

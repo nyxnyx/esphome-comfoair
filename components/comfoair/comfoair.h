@@ -208,7 +208,7 @@ public:
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 
-  void set_name(const char* value) {}
+  void set_name(const char* value) {this->name = value;}
   void set_uart_component(uart::UARTComponent *parent) {this->set_uart_parent(parent);}
 
 protected:
@@ -571,14 +571,13 @@ protected:
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
+  const char* name{0};
 
 public: 
   sensor::Sensor *fan_supply_air_percentage{nullptr};
   sensor::Sensor *fan_exhaust_air_percentage{nullptr};
   sensor::Sensor *fan_speed_supply{nullptr};
   sensor::Sensor *fan_speed_exhaust{nullptr};
-  binary_sensor::BinarySensor *is_bypass_valve_open{nullptr};
-  binary_sensor::BinarySensor *is_preheating{nullptr};
   sensor::Sensor *outside_air_temperature{nullptr};
   sensor::Sensor *supply_air_temperature{nullptr};
   sensor::Sensor *return_air_temperature{nullptr};
@@ -589,12 +588,14 @@ public:
   sensor::Sensor *kitchen_hood_temperature{nullptr};
   sensor::Sensor *return_air_level{nullptr};
   sensor::Sensor *supply_air_level{nullptr};
-  binary_sensor::BinarySensor *is_supply_fan_active{nullptr};
-  binary_sensor::BinarySensor *is_filter_full{nullptr};
   sensor::Sensor *bypass_factor{nullptr};
   sensor::Sensor *bypass_step{nullptr};
   sensor::Sensor *bypass_correction{nullptr};
+  binary_sensor::BinarySensor *is_bypass_valve_open{nullptr};
+  binary_sensor::BinarySensor *is_preheating{nullptr};
   binary_sensor::BinarySensor *is_summer_mode{nullptr};
+  binary_sensor::BinarySensor *is_supply_fan_active{nullptr};
+  binary_sensor::BinarySensor *is_filter_full{nullptr};
 
   void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
   void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };

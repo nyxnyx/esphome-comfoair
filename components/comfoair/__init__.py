@@ -176,14 +176,10 @@ def to_code(config):
     paren = yield cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:
-        
-        #conf = config[CONF_VAC_U]
-        #sens = yield sensor.new_sensor(conf)
-        #cg.add(var.set_vac_u_sensor(sens))
         if k in config:
             if 'is_' in k:
                 sens = yield binary_sensor.new_binary_sensor(config[k])
             else:
                 sens = yield sensor.new_sensor(config[k])
             eval('cg.add(var.set_'+k+'(sens))')
-    #yield climate.register_climate(var, config)
+    yield cg.register_climate(var, config)

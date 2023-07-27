@@ -182,4 +182,4 @@ def to_code(config):
             else:
                 sens = yield sensor.new_sensor(config[k])
             eval('cg.add(var.set_'+k+'(sens))')
-    yield cg.register_climate(var, config)
+    cg.add(cg.App.register_climate(var))

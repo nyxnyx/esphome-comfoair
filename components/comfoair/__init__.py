@@ -177,9 +177,11 @@ def to_code(config):
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:
         if k in config:
+            sens = None
             if 'is_' in k:
                 sens = yield binary_sensor.new_binary_sensor(config[k])
             else:
                 sens = yield sensor.new_sensor(config[k])
-            eval('cg.add(var.set_'+k+'(sens))')
+            func = getattr(var, 'set_'+k)
+            cg.add(func(sens))
     cg.add(cg.App.register_climate(var))

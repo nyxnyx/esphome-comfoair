@@ -17,35 +17,7 @@ public:
   ComfoAirComponent() : 
   Climate(), 
   PollingComponent(600),
-  UARTDevice() { 
-    /**fan_supply_air_percentage = new sensor::Sensor("Comfoair Fan Supply Air");
-    fan_exhaust_air_percentage = new sensor::Sensor("Comfoair Fan Exhaust Air");
-    fan_speed_supply = new sensor::Sensor("Comfoair Fan Speed Supply");
-    fan_speed_exhaust = new sensor::Sensor("Comfoair Fan Speed Exhaust");
-    outside_air_temperature = new sensor::Sensor("Comfoair Outside Air");
-    supply_air_temperature = new sensor::Sensor("Comfoair Supply Air");
-    return_air_temperature = new sensor::Sensor("Comfoair Return Air");
-    exhaust_air_temperature = new sensor::Sensor("Comfoair Exhaust Air");
-    enthalpy_temperature = new sensor::Sensor("Comfoair Enthalapy Temp");
-    ewt_temperature = new sensor::Sensor("Comfoair EWT");
-    reheating_temperature = new sensor::Sensor("Comfoair Reheating Temp");
-    kitchen_hood_temperature = new sensor::Sensor("Comfoair Kitchen Hood Air");
-    return_air_level = new sensor::Sensor("Comfoair Return Air Level");
-    supply_air_level = new sensor::Sensor("Comfoair Suply Air Level");
-    bypass_factor = new sensor::Sensor("Comfoair bypass factor");
-    bypass_step = new sensor::Sensor("Comfoair bypass step");
-    bypass_correction = new sensor::Sensor("Comfoair bypass correction");
-    is_bypass_valve_open = new binary_sensor::BinarySensor();
-    is_bypass_valve_open.set_name("Comfoair Bypass Valve");
-    is_preheating = new binary_sensor::BinarySensor();
-    is_preheating->set_name("Comfoair Preheating");
-    is_supply_fan_active = new binary_sensor::BinarySensor();
-    is_supply_fan_active->set_name("Comfoair Supply Fan");
-    is_filter_full = new binary_sensor::BinarySensor();
-    is_filter_full->set_name("Comfoair Filter Full");
-    is_summer_mode = new binary_sensor::BinarySensor();
-    is_summer_mode->set_name("Comfoair Summer Mode");**/
-  }
+  UARTDevice() { }
 
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {

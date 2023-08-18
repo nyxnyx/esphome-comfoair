@@ -22,7 +22,7 @@ public:
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
-    traits.set_supports_current_temperature(false);
+    traits.set_supports_current_temperature(true);
     traits.set_supported_modes({
       climate::CLIMATE_MODE_FAN_ONLY
     });
@@ -429,7 +429,6 @@ protected:
 
         // comfort temperature
         this->target_temperature = (float) msg[0] / 2.0f - 20.0f;
-        this->current_temperature = (float) msg[2] / 2.0f - 20.0f;
         this->publish_state();
 
         // T1 / outside air
@@ -443,6 +442,7 @@ protected:
         // T3 / exhaust air
         if (this->return_air_temperature != nullptr && msg[5] & 0x04) {
           this->return_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
+          this->current_temperature = (float) msg[3] / 2.0f - 20.0f;
         }
         // T4 / continued air
         if (this->exhaust_air_temperature != nullptr && msg[5] & 0x08) {

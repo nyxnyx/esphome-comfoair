@@ -14,8 +14,8 @@ and than use it:
 ```
 uart:
   id: uart_bus
-  rx_pin: 1
-  tx_pin: 3
+  rx_pin: 3
+  tx_pin: 1
   baud_rate: 9600
 
 comfoair:

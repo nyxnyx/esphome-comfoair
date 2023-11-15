@@ -35,7 +35,6 @@ public:
     traits.set_visual_max_temperature(29);
     //traits.set_visual_tXComfoAirComponentemperature_step(1);
     traits.set_supported_fan_modes({
-      climate::CLIMATE_FAN_FOCUS,
       climate::CLIMATE_FAN_AUTO,
       climate::CLIMATE_FAN_LOW,
       climate::CLIMATE_FAN_MEDIUM,
@@ -52,10 +51,6 @@ public:
 
       this->fan_mode = *call.get_fan_mode();
       switch (this->fan_mode.value()) {
-        case climate::CLIMATE_FAN_FOCUS:
-          level = 0x05;
-          break;
-
         case climate::CLIMATE_FAN_HIGH:
           level = 0x04;
           break;

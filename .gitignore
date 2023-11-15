@@ -6,6 +6,7 @@
 /.vs
 /root@
 secrets.yaml
+rekuperace.yaml
 esphome
 .esphome
 __pycache__

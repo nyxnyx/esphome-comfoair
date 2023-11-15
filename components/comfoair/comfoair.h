@@ -231,7 +231,7 @@ protected:
     return sum + 0xad;
   }
 
-  optional<bool> check_byte_() const {
+  optional<bool> check_byte_() {
     uint8_t index = this->data_index_;
     uint8_t byte = this->data_[index];
 
@@ -263,6 +263,10 @@ protected:
     }
 
     if (index < COMFOAIR_MSG_HEAD_LENGTH + data_length) {
+      // handle escaped 0x07 byte (sequence of two 0x07 0x07 taken as one)
+      if (byte == COMFOAIR_MSG_PREFIX && this->data_[index-1] == COMFOAIR_MSG_PREFIX) {
+          this->data_index_--;
+      }
       return true;
     }
 

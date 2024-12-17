@@ -1,4 +1,4 @@
-# ComfoAir
+# ComfoAir - fork by hhjcz
 Port of ComfoAir protocol to ESPHome.io firmware originally by @wichers modified by @nyxnyx
 to be installed as external_components.
 

@@ -2,6 +2,7 @@
 
 #include "esphome.h"
 #include "esphome/core/component.h"
+#include "esphome/components/api/custom_api_device.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/climate/climate_mode.h"
@@ -10,7 +11,7 @@
 
 namespace esphome {
 namespace comfoair {
-class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {
+class ComfoAirComponent : public climate::Climate, public PollingComponent, public api::CustomAPIDevice, public uart::UARTDevice {
 public:
 
   // Poll every 600ms
@@ -18,6 +19,78 @@ public:
   Climate(), 
   PollingComponent(600),
   UARTDevice() { }
+  
+  void setup() override {
+      // needs more investigation
+      // register_service(&ComfoAirComponent::control_set_operation_mode, "climate_set_operation_mode", {"exhaust_fan", "supply_fan"});
+      register_service(&ComfoAirComponent::control_set_speeds, "climate_set_speeds", {"exhaust_fan", "supply_fan", "off", "low", "mid", "high"});
+      register_service(&ComfoAirComponent::control_set_all_speeds, "climate_set_all_speeds", {"supply_off", "supply_low", "supply_mid", "supply_high", "exhaust_off", "exhaust_low", "exhaust_mid", "exhaust_high"});
+      register_service(&ComfoAirComponent::control_set_curmode_speeds, "climate_set_current_mode_speeds", {"exhaust", "supply"});
+  }
+  
+  void control_set_operation_mode(bool exhaust, bool supply) {
+    ESP_LOGI(TAG, "Setting operation mode target exhaust: %i, supply: %i", exhaust, supply);
+    uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
+        exhaust ? ventilation_levels_[0] : (uint8_t)0,
+        exhaust ? ventilation_levels_[2] : (uint8_t)0,
+        exhaust ? ventilation_levels_[4] : (uint8_t)0,
+        supply ? ventilation_levels_[1] : (uint8_t)0,
+        supply ? ventilation_levels_[3] : (uint8_t)0,
+        supply ? ventilation_levels_[5] : (uint8_t)0,
+        exhaust ? ventilation_levels_[6] : (uint8_t)0,
+        supply ? ventilation_levels_[7] : (uint8_t)0,
+        (uint8_t)0x00
+    };
+    write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
+  }
+
+  void control_set_curmode_speeds(int exhaust, int supply) {
+    ESP_LOGI(TAG, "Setting speeds for level %i to: %i,%i", ventilation_level->state, exhaust, supply);
+    uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
+        (ventilation_level->state==0x01) ? ventilation_levels_[0] : (uint8_t)exhaust,
+        (ventilation_level->state==0x02) ? ventilation_levels_[2] : (uint8_t)exhaust,
+        (ventilation_level->state==0x03) ? ventilation_levels_[4] : (uint8_t)exhaust,
+        (ventilation_level->state==0x01) ? ventilation_levels_[1] : (uint8_t)supply,
+        (ventilation_level->state==0x02) ? ventilation_levels_[3] : (uint8_t)supply,
+        (ventilation_level->state==0x03) ? ventilation_levels_[5] : (uint8_t)supply,
+        (ventilation_level->state==0x04) ? ventilation_levels_[6] : (uint8_t)exhaust,
+        (ventilation_level->state==0x04) ? ventilation_levels_[7] : (uint8_t)supply,
+        (uint8_t)0x00
+    };  
+    write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
+  }
+
+  void control_set_speeds(bool exhaust, bool supply, int off, int low, int mid, int high) {
+    ESP_LOGI(TAG, "Setting speeds to: %i,%i,%i,%i", off, low, mid, high);
+    uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
+        !exhaust ? ventilation_levels_[0] : (uint8_t)off,
+        !exhaust ? ventilation_levels_[2] : (uint8_t)low,
+        !exhaust ? ventilation_levels_[4] : (uint8_t)mid,
+        !supply ? ventilation_levels_[1] : (uint8_t)off,
+        !supply ? ventilation_levels_[3] : (uint8_t)low,
+        !supply ? ventilation_levels_[5] : (uint8_t)mid,
+        !exhaust ? ventilation_levels_[6] : (uint8_t)high,
+        !supply ? ventilation_levels_[7] : (uint8_t)high,
+        (uint8_t)0x00
+    };
+    write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
+  }
+
+  void control_set_all_speeds(int supply_off, int supply_low, int supply_mid, int supply_high, int exhaust_off, int exhaust_low, int exhaust_mid, int exhaust_high) {
+    ESP_LOGI(TAG, "Setting speeds for supply to: %i,%i,%i,%i; exhaust: %i,%i,%i,%i", supply_off, supply_low, supply_mid, supply_high, exhaust_off, exhaust_low, exhaust_mid, exhaust_high);
+    uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
+        (uint8_t)exhaust_off,
+        (uint8_t)exhaust_low,
+        (uint8_t)exhaust_mid,
+        (uint8_t)supply_off,
+        (uint8_t)supply_low,
+        (uint8_t)supply_mid,
+        (uint8_t)supply_high,
+        (uint8_t)exhaust_high,
+        (uint8_t)0x00
+    };
+    write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
+  }
 
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
@@ -385,6 +458,9 @@ protected:
         if (this->supply_air_level != nullptr) {
           this->supply_air_level->publish_state(msg[7]);
         }
+        if (ventilation_level != nullptr) {
+          ventilation_level->publish_state(msg[8] - 1);
+        }
 
         // Fan Speed
         switch(msg[8]) {
@@ -416,6 +492,17 @@ protected:
         if (this->is_supply_fan_active != nullptr) {
           this->is_supply_fan_active->publish_state(msg[9] == 1);
         }
+
+        // Record current speeds for resetting them if needed.
+        if (msg[0]) ventilation_levels_[0] = msg[0];
+        if (msg[3]) ventilation_levels_[1] = msg[3];
+        if (msg[1]) ventilation_levels_[2] = msg[1];
+        if (msg[4]) ventilation_levels_[3] = msg[4];
+        if (msg[2]) ventilation_levels_[4] = msg[2];
+        if (msg[5]) ventilation_levels_[5] = msg[5];
+        if (msg[10]) ventilation_levels_[6] = msg[10];
+        if (msg[11]) ventilation_levels_[7] = msg[11];
+
         break;
       }
       case COMFOAIR_GET_ERROR_STATE_RESPONSE: {
@@ -539,6 +626,8 @@ protected:
   uint8_t data_index_{0};
   int8_t update_counter_{-3};
 
+  uint8_t ventilation_levels_[8];
+
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
@@ -552,6 +641,7 @@ public:
   sensor::Sensor *outside_air_temperature{nullptr};
   sensor::Sensor *supply_air_temperature{nullptr};
   sensor::Sensor *return_air_temperature{nullptr};
+  sensor::Sensor *ventilation_level{nullptr};
   sensor::Sensor *exhaust_air_temperature{nullptr};
   sensor::Sensor *enthalpy_temperature{nullptr};
   sensor::Sensor *ewt_temperature{nullptr};
@@ -584,6 +674,7 @@ public:
   void set_kitchen_hood_temperature(sensor::Sensor *kitchen_hood_temperature) {this->kitchen_hood_temperature =kitchen_hood_temperature; };
   void set_return_air_level(sensor::Sensor *return_air_level) {this->return_air_level =return_air_level; };
   void set_supply_air_level(sensor::Sensor *supply_air_level) {this->supply_air_level =supply_air_level; };
+  void set_ventilation_level(sensor::Sensor *ventilation_level) { this->ventilation_level = ventilation_level; };
   void set_is_supply_fan_active(binary_sensor::BinarySensor *is_supply_fan_active) {this->is_supply_fan_active =is_supply_fan_active; };
   void set_is_filter_full(binary_sensor::BinarySensor *is_filter_full) {this->is_filter_full =is_filter_full; };
   void set_bypass_factor(sensor::Sensor *bypass_factor) {this->bypass_factor = bypass_factor; };

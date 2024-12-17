@@ -31,6 +31,7 @@ CONF_REHEATING_TEMPERATURE = "reheating_temperature"
 CONF_KITCHEN_HOOD_TEMPERATURE = "kitchen_hood_temperature"
 CONF_RETURN_AIR_LEVEL = "return_air_level"
 CONF_SUPPLY_AIR_LEVEL = "supply_air_level"
+CONF_VENTILATION_LEVEL = "ventilation_level"
 CONF_IS_SUPPLY_FAN_ACTIVE = "is_supply_fan_active"
 CONF_IS_FILTER_FULL = "is_filter_full"
 CONF_BYPASS_FACTOR = "bypass_factor"
@@ -55,6 +56,7 @@ helper_comfoair_list = [
     CONF_KITCHEN_HOOD_TEMPERATURE,
     CONF_RETURN_AIR_LEVEL,
     CONF_SUPPLY_AIR_LEVEL,
+    CONF_VENTILATION_LEVEL,
     CONF_IS_SUPPLY_FAN_ACTIVE,
     CONF_IS_FILTER_FULL,
     CONF_BYPASS_FACTOR,
@@ -133,6 +135,10 @@ cv.Optional(CONF_SUPPLY_AIR_LEVEL): sensor.sensor_schema(
     device_class=DEVICE_CLASS_VOLUME,
     unit_of_measurement=UNIT_CUBIC_METER,
     accuracy_decimals=1,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_VENTILATION_LEVEL): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_EMPTY,
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_BYPASS_FACTOR): sensor.sensor_schema(
     device_class=DEVICE_CLASS_VOLUME,

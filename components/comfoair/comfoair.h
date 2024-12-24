@@ -85,8 +85,8 @@ public:
         (uint8_t)supply_off,
         (uint8_t)supply_low,
         (uint8_t)supply_mid,
-        (uint8_t)supply_high,
         (uint8_t)exhaust_high,
+        (uint8_t)supply_high,
         (uint8_t)0x00
     };
     write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));

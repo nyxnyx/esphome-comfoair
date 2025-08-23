@@ -8,8 +8,7 @@ from esphome.components import sensor
 from esphome.components import binary_sensor
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
-climate_ns = cg.esphome_ns.namespace("climate")
-ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent)
+ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', cg.PollingComponent)
 
 DEPENDENCIES=['uart']
 AUTO_LOAD = ['sensor', 'climate', 'binary_sensor']

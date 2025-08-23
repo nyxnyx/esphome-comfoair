@@ -8,7 +8,6 @@
 #include "esphome/components/climate/climate_traits.h"
 #include "messages.h"
 
-#define USE_CLIMATE
 namespace esphome {
 namespace comfoair {
 class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {

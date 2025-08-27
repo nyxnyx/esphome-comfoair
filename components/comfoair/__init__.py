@@ -184,4 +184,4 @@ def to_code(config):
                 sens = yield sensor.new_sensor(config[k])
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))
-    cg.add(cg.App.register_climate(var))
+    cg.add(cg.App.register_component(var))

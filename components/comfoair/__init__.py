@@ -172,6 +172,7 @@ def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
+    yield climate.register_climate_component(var, config)
     cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
     paren = yield cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
@@ -185,4 +186,3 @@ def to_code(config):
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))
     cg.add(cg.App.register_component(var))
-    await climate.register_climate_component(var, config)

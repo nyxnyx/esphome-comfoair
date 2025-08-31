@@ -185,3 +185,4 @@ def to_code(config):
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))
     cg.add(cg.App.register_component(var))
+    await climate.register_climate_component(var, config)

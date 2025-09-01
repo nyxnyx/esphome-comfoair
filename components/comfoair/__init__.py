@@ -8,6 +8,7 @@ from esphome.components import sensor
 from esphome.components import binary_sensor
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
+climate_ns = cg.esphome_ns.namespace("climate")
 ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', cg.Component)
 
 DEPENDENCIES=['uart']

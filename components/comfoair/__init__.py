@@ -168,21 +168,21 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
-def to_code(config):
+async def to_code(config):
     """Generates code"""
     # var = cg.new_Pvariable(config[CONF_ID])
     var = await climate.new_climate(config)
-    yield cg.register_component(var, config)
-    yield uart.register_uart_device(var, config)
+    await cg.register_component(var, config)
+    await uart.register_uart_device(var, config)
     cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
-    paren = yield cg.get_variable(config[CONF_UART_ID])
+    paren = await cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:
         if k in config:
             sens = None
             if 'is_' in k:
-                sens = yield binary_sensor.new_binary_sensor(config[k])
+                sens = await binary_sensor.new_binary_sensor(config[k])
             else:
-                sens = yield sensor.new_sensor(config[k])
+                sens = await sensor.new_sensor(config[k])
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))

@@ -170,8 +170,8 @@ CONFIG_SCHEMA = cv.All(
 
 def to_code(config):
     """Generates code"""
-    cg.add_global(climate_ns.using)
-    var = cg.new_Pvariable(config[CONF_ID])
+    # var = cg.new_Pvariable(config[CONF_ID])
+    var = await climate.new_climate(config)
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
     cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
@@ -186,4 +186,3 @@ def to_code(config):
                 sens = yield sensor.new_sensor(config[k])
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))
-    cg.add(cg.App.register_climate(var))

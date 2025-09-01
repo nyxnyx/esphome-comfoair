@@ -65,8 +65,7 @@ helper_comfoair_list = [
 ]
 
 comfoair_sensors_schemas = cv.Schema(
-    climate.climate_schema(ComfoAirComponent)
-    .extend({
+    {
 cv.Optional(CONF_FAN_SUPPLY_AIR_PERCENTAGE): sensor.sensor_schema(
     device_class=DEVICE_CLASS_SPEED,
     unit_of_measurement=UNIT_PERCENT,
@@ -167,6 +166,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(comfoair_sensors_schemas)
     .extend(cv.COMPONENT_SCHEMA)
+    .extend(climate.climate_schema(ComfoAirComponent))
 )
 
 

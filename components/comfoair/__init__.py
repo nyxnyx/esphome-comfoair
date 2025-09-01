@@ -9,7 +9,7 @@ from esphome.components import binary_sensor
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
 climate_ns = cg.esphome_ns.namespace("climate")
-ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', cg.Component)
+ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent)
 
 DEPENDENCIES=['uart']
 AUTO_LOAD = ['sensor', 'climate', 'binary_sensor']
@@ -64,7 +64,9 @@ helper_comfoair_list = [
     CONF_IS_SUMMER_MODE,
 ]
 
-comfoair_sensors_schemas = cv.Schema({
+comfoair_sensors_schemas = cv.Schema(
+    climate.climate_schema(ComfoAirComponent)
+    .extend({
 cv.Optional(CONF_FAN_SUPPLY_AIR_PERCENTAGE): sensor.sensor_schema(
     device_class=DEVICE_CLASS_SPEED,
     unit_of_measurement=UNIT_PERCENT,

@@ -45,7 +45,7 @@ public:
   }
 
   void control_set_curmode_speeds(float exhaust, float supply) {
-    ESP_LOGI(TAG, "Setting speeds for level %i to: %2f,%2f", ventilation_level->state, exhaust, supply);
+    ESP_LOGI(TAG, "Setting speeds for level %i to: %.2f,%.2f", ventilation_level->state, exhaust, supply);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         (ventilation_level->state==0x01) ? ventilation_levels_[0] : (uint8_t)exhaust,
         (ventilation_level->state==0x02) ? ventilation_levels_[2] : (uint8_t)exhaust,
@@ -61,7 +61,7 @@ public:
   }
 
   void control_set_speeds(bool exhaust, bool supply, float off, float low, float mid, float high) {
-    ESP_LOGI(TAG, "Setting speeds to: %2f,%2f,%2f,%2f", off, low, mid, high);
+    ESP_LOGI(TAG, "Setting speeds to: %.2f,%.2f,%.2f,%.2f", off, low, mid, high);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         !exhaust ? ventilation_levels_[0] : (uint8_t)off,
         !exhaust ? ventilation_levels_[2] : (uint8_t)low,
@@ -77,7 +77,7 @@ public:
   }
 
   void control_set_all_speeds(float supply_off, float supply_low, float supply_mid, float supply_high, float exhaust_off, float exhaust_low, float exhaust_mid, float exhaust_high) {
-    ESP_LOGI(TAG, "Setting speeds for supply to: %2f,%2f,%2f,%2f; exhaust: %2f,%2f,%2f,%2f", supply_off, supply_low, supply_mid, supply_high, exhaust_off, exhaust_low, exhaust_mid, exhaust_high);
+    ESP_LOGI(TAG, "Setting speeds for supply to: %.2f,%.2f,%.2f,%.2f; exhaust: %.2f,%.2f,%.2f,%.2f", supply_off, supply_low, supply_mid, supply_high, exhaust_off, exhaust_low, exhaust_mid, exhaust_high);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         (uint8_t)exhaust_off,
         (uint8_t)exhaust_low,

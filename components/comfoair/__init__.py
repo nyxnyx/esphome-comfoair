@@ -163,7 +163,7 @@ cv.Optional(CONF_IS_FILTER_FULL): binary_sensor.binary_sensor_schema(device_clas
 })
 
 CONFIG_SCHEMA = cv.All(
-    climate.CLIMATE_SCHEMA.extend( {
+    climate.climate_schema(ComfoAirComponent).extend( {
         cv.GenerateID(CONF_ID): cv.declare_id(ComfoAirComponent),
         cv.Required(REQUIRED_KEY_NAME): cv.string,
     })

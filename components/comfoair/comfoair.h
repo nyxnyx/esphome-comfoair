@@ -44,7 +44,7 @@ public:
     write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
   }
 
-  void control_set_curmode_speeds(int exhaust, int supply) {
+  void control_set_curmode_speeds(float exhaust, float supply) {
     ESP_LOGI(TAG, "Setting speeds for level %i to: %i,%i", ventilation_level->state, exhaust, supply);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         (ventilation_level->state==0x01) ? ventilation_levels_[0] : (uint8_t)exhaust,
@@ -60,8 +60,8 @@ public:
     write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
   }
 
-  void control_set_speeds(bool exhaust, bool supply, int off, int low, int mid, int high) {
-    ESP_LOGI(TAG, "Setting speeds to: %i,%i,%i,%i", off, low, mid, high);
+  void control_set_speeds(bool exhaust, bool supply, float off, float low, float mid, float high) {
+    ESP_LOGI(TAG, "Setting speeds to: %f,%f,%f,%f", off, low, mid, high);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         !exhaust ? ventilation_levels_[0] : (uint8_t)off,
         !exhaust ? ventilation_levels_[2] : (uint8_t)low,
@@ -76,8 +76,8 @@ public:
     write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, command_data, sizeof(command_data));
   }
 
-  void control_set_all_speeds(int supply_off, int supply_low, int supply_mid, int supply_high, int exhaust_off, int exhaust_low, int exhaust_mid, int exhaust_high) {
-    ESP_LOGI(TAG, "Setting speeds for supply to: %i,%i,%i,%i; exhaust: %i,%i,%i,%i", supply_off, supply_low, supply_mid, supply_high, exhaust_off, exhaust_low, exhaust_mid, exhaust_high);
+  void control_set_all_speeds(int supply_off, float supply_low, float supply_mid, float supply_high, float exhaust_off, float exhaust_low, float exhaust_mid, float exhaust_high) {
+    ESP_LOGI(TAG, "Setting speeds for supply to: %f,%f,%f,%f; exhaust: %f,%f,%f,%f", supply_off, supply_low, supply_mid, supply_high, exhaust_off, exhaust_low, exhaust_mid, exhaust_high);
     uint8_t command_data[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
         (uint8_t)exhaust_off,
         (uint8_t)exhaust_low,

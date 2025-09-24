@@ -36,6 +36,7 @@ uart:
 
 comfoair:
   name: "ComfoAir 350"
+  id: my_comfoair
   uart_id: uart_bus
   fan_supply_air_percentage:
     name: "Fan supply (%)"
@@ -88,5 +89,4 @@ button:
     on_press:
       then:
         - lambda: |-
-                auto reset_filter = new esphome::comfoair::ComfoAirComponent();
-                reset_filter->reset_filter();
+                id(my_comfoair)->reset_filter();

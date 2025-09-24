@@ -211,13 +211,6 @@ protected:
     }
   }
 
-  void reset_filter_counter_() {
-	// resets: errors, settings, autotest, filter
-    uint8_t[COMFOAIR_SET_RESET_LENGTH] = {0x00, 0x00, 0x00, 0x01};
-    ESP_LOGI(TAG, "Resetting filter counter.");
-	this->write_command_(COMFOAIR_SET_RESET_REQUEST, command, sizeof(command);
-  }
-
   void write_command_(const uint8_t command, const uint8_t *command_data, uint8_t command_data_length) {
     this->write_byte(COMFOAIR_MSG_PREFIX);
     this->write_byte(COMFOAIR_MSG_HEAD);

@@ -81,3 +81,12 @@ comfoair:
     name: "Bypass correction"
   is_summer_mode:
     name: "Is summer mode?"
+
+button:
+  - platform: template
+    name: "Reset Filter"
+    on_press:
+      then:
+        - lambda: |-
+                auto reset_filter = new esphome::comfoair::ComfoAirComponent(id(uart_bus));
+                reset_filter->reset_filter();

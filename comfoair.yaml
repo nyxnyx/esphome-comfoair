@@ -88,5 +88,5 @@ button:
     on_press:
       then:
         - lambda: |-
-                auto reset_filter = new esphome::comfoair::ComfoAirComponent(id(uart_bus));
+                auto reset_filter = new esphome::comfoair::ComfoAirComponent();
                 reset_filter->reset_filter();

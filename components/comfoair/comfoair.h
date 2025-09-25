@@ -177,6 +177,7 @@ public:
 
   void reset_filter(void) {
     uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {0, 0, 0, 1};
+	  ESP_LOGI(TAG, "Resetting filter counter. Make sure that filter is changed");
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 

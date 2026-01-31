@@ -182,9 +182,8 @@ public:
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 
-  void set_name(const char* value, uint32_t id) {
+  void set_name(const char* value) {
 	  this->name = value;
-	  this->id = id;
   }
   void set_uart_component(uart::UARTComponent *parent) {this->set_uart_parent(parent);}
 

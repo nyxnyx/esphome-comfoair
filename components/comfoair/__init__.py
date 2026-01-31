@@ -176,7 +176,7 @@ async def to_code(config):
     var = await climate.new_climate(config)
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    cg.add(var.set_name(config[REQUIRED_KEY_NAME], config[CONF_ID].id))
+    cg.add(var.set_name(config[REQUIRED_KEY_NAME], config[CONF_ID]))
     paren = await cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:

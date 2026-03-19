@@ -179,7 +179,6 @@ def to_code(config):
     yield cg.register_component(var, config)
     yield uart.register_uart_device(var, config)
     yield climate.register_climate(var, config)
-    cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
     paren = yield cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:

@@ -82,6 +82,20 @@ comfoair:
     name: "Bypass correction"
   is_summer_mode:
     name: "Is summer mode?"
+  fan_hours_supply:
+    name: "Supply Fan Hours"
+  fan_hours_exhaust:
+    name: "Exhaust Fan Hours"
+  bypass_hours:
+    name: "Bypass Hours"
+  preheater_hours:
+    name: "Preheater Hours"
+  filter_hours:
+    name: "Filter Hours"
+  ewt_hours:
+    name: "EWT Hours"
+  error_code:
+    name: "Error Code"
 
 button:
   - platform: template

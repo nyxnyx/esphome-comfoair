@@ -145,10 +145,16 @@ public:
       case 6:
         get_bypass_control_status_();
         break;
+      case 7:
+        get_operating_hours_();
+        break;
+      case 8:
+        get_preheater_status_();
+        break;
     }
 
     update_counter_++;
-    if (update_counter_ > 6)
+    if (update_counter_ > 8)
       update_counter_ = 0;
   }
 
@@ -420,9 +426,27 @@ protected:
         }
         break;
       }
+      case COMFOAIR_GET_OPERATING_HOURS_RESPONSE: {
+        if (this->fan_hours_supply != nullptr) this->fan_hours_supply->publish_state(this->get_uint16_(0));
+        if (this->fan_hours_exhaust != nullptr) this->fan_hours_exhaust->publish_state(this->get_uint16_(2));
+        if (this->bypass_hours != nullptr) this->bypass_hours->publish_state(this->get_uint16_(4));
+        if (this->preheater_hours != nullptr) this->preheater_hours->publish_state(this->get_uint16_(6));
+        if (this->ewt_hours != nullptr) this->ewt_hours->publish_state(this->get_uint16_(8));
+        if (this->filter_hours != nullptr) this->filter_hours->publish_state(this->get_uint16_(10));
+        break;
+      }
+      case COMFOAIR_GET_PREHEATER_STATUS_RESPONSE: {
+        if (this->is_preheating != nullptr) {
+          this->is_preheating->publish_state(msg[0] != 0);
+        }
+        break;
+      }
       case COMFOAIR_GET_ERROR_STATE_RESPONSE: {
         if (this->is_filter_full != nullptr) {
           this->is_filter_full->publish_state(msg[8] != 0);
+        }
+        if (this->error_code != nullptr) {
+          this->error_code->publish_state(msg[0]); // Just taking the first error byte as code for now
         }
         break;
       }
@@ -529,6 +553,16 @@ protected:
     this->write_command_(COMFOAIR_GET_TEMPERATURES_REQUEST, nullptr, 0);
   }
 
+  void get_operating_hours_() {
+    ESP_LOGD(TAG, "getting operating hours");
+    this->write_command_(COMFOAIR_GET_OPERATING_HOURS_REQUEST, nullptr, 0);
+  }
+
+  void get_preheater_status_() {
+    ESP_LOGD(TAG, "getting preheater status");
+    this->write_command_(COMFOAIR_GET_PREHEATER_STATUS_REQUEST, nullptr, 0);
+  }
+
   uint8_t get_uint8_t_(uint8_t start_index) const {
     return this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index];
   }
@@ -570,6 +604,13 @@ public:
   binary_sensor::BinarySensor *is_summer_mode{nullptr};
   binary_sensor::BinarySensor *is_supply_fan_active{nullptr};
   binary_sensor::BinarySensor *is_filter_full{nullptr};
+  sensor::Sensor *fan_hours_supply{nullptr};
+  sensor::Sensor *fan_hours_exhaust{nullptr};
+  sensor::Sensor *bypass_hours{nullptr};
+  sensor::Sensor *preheater_hours{nullptr};
+  sensor::Sensor *filter_hours{nullptr};
+  sensor::Sensor *ewt_hours{nullptr};
+  sensor::Sensor *error_code{nullptr};
 
   void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
   void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };
@@ -593,6 +634,13 @@ public:
   void set_bypass_step(sensor::Sensor *bypass_step) {this->bypass_step = bypass_step; };
   void set_bypass_correction(sensor::Sensor *bypass_correction) {this->bypass_correction = bypass_correction; };
   void set_is_summer_mode(binary_sensor::BinarySensor *is_summer_mode) {this->is_summer_mode = is_summer_mode; };
+  void set_fan_hours_supply(sensor::Sensor *fan_hours_supply) {this->fan_hours_supply = fan_hours_supply; };
+  void set_fan_hours_exhaust(sensor::Sensor *fan_hours_exhaust) {this->fan_hours_exhaust = fan_hours_exhaust; };
+  void set_bypass_hours(sensor::Sensor *bypass_hours) {this->bypass_hours = bypass_hours; };
+  void set_preheater_hours(sensor::Sensor *preheater_hours) {this->preheater_hours = preheater_hours; };
+  void set_filter_hours(sensor::Sensor *filter_hours) {this->filter_hours = filter_hours; };
+  void set_ewt_hours(sensor::Sensor *ewt_hours) {this->ewt_hours = ewt_hours; };
+  void set_error_code(sensor::Sensor *error_code) {this->error_code = error_code; };
 };
 
 }  // namespace comfoair

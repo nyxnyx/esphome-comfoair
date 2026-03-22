@@ -36,6 +36,13 @@ CONF_BYPASS_FACTOR = "bypass_factor"
 CONF_BYPASS_STEP = "bypass_step"
 CONF_BYPASS_CORRECTION = "bypass_correction"
 CONF_IS_SUMMER_MODE = "is_summer_mode"
+CONF_FAN_HOURS_SUPPLY = "fan_hours_supply"
+CONF_FAN_HOURS_EXHAUST = "fan_hours_exhaust"
+CONF_BYPASS_HOURS = "bypass_hours"
+CONF_PREHEATER_HOURS = "preheater_hours"
+CONF_FILTER_HOURS = "filter_hours"
+CONF_EWT_HOURS = "ewt_hours"
+CONF_ERROR_CODE = "error_code"
 
 helper_comfoair_list = [
     CONF_FAN_SUPPLY_AIR_PERCENTAGE,
@@ -60,6 +67,13 @@ helper_comfoair_list = [
     CONF_BYPASS_STEP,
     CONF_BYPASS_CORRECTION,
     CONF_IS_SUMMER_MODE,
+    CONF_FAN_HOURS_SUPPLY,
+    CONF_FAN_HOURS_EXHAUST,
+    CONF_BYPASS_HOURS,
+    CONF_PREHEATER_HOURS,
+    CONF_FILTER_HOURS,
+    CONF_EWT_HOURS,
+    CONF_ERROR_CODE,
 ]
 
 comfoair_sensors_schemas = cv.Schema(
@@ -154,6 +168,33 @@ cv.Optional(CONF_IS_PREHEATING): binary_sensor.binary_sensor_schema(device_class
 cv.Optional(CONF_IS_SUMMER_MODE): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
 cv.Optional(CONF_IS_SUPPLY_FAN_ACTIVE): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
 cv.Optional(CONF_IS_FILTER_FULL): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
+cv.Optional(CONF_FAN_HOURS_SUPPLY): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_HOURS_EXHAUST): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_BYPASS_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_PREHEATER_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FILTER_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_EWT_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ERROR_CODE): sensor.sensor_schema(
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
 })
 
 CONFIG_SCHEMA = cv.All(

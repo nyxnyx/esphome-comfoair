@@ -1,0 +1,23 @@
+esphome:
+  name: test_comfoair
+  platform: ESP8266
+  board: esp01_1m
+
+external_components:
+  - source: 
+      type: local
+      path: ../../components
+    components: [comfoair]
+
+uart:
+  id: uart_bus
+  baud_rate: 9600
+  tx_pin: TX
+  rx_pin: RX
+
+comfoair:
+  name: "ComfoAir 350 Test"
+  id: my_comfoair
+  uart_id: uart_bus
+  fan_hours_supply:
+    name: "Fan Hours"

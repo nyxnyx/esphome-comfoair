@@ -544,8 +544,8 @@ protected:
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
-  const char* name{0};
-  uint32_t id;
+  std::string name;
+  void set_name(const std::string &name) { this->name = name; }
 
 public: 
   sensor::Sensor *fan_supply_air_percentage{nullptr};

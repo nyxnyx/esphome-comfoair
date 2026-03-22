@@ -8,11 +8,10 @@ from esphome.components import sensor
 from esphome.components import binary_sensor
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
-ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', cg.PollingComponent)
+ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent, uart.UARTDevice)
 
 DEPENDENCIES=['uart']
 AUTO_LOAD = ['sensor', 'climate', 'binary_sensor']
-REQUIRED_KEY_NAME = "name"
 CONF_HUB_ID = 'comfoair'
 
 CONF_FAN_SUPPLY_AIR_PERCENTAGE = "fan_supply_air_percentage"
@@ -160,7 +159,6 @@ cv.Optional(CONF_IS_FILTER_FULL): binary_sensor.binary_sensor_schema(device_clas
 CONFIG_SCHEMA = cv.All(
     cv.Schema( {
         cv.GenerateID(CONF_ID): cv.declare_id(ComfoAirComponent),
-        cv.Required(REQUIRED_KEY_NAME): cv.string,
     })
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(comfoair_sensors_schemas)
@@ -175,7 +173,6 @@ async def to_code(config):
     var = await climate.new_climate(config)
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
-    cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
     paren = await cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:

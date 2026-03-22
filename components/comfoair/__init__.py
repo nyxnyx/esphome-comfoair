@@ -16,8 +16,8 @@ DEPENDENCIES=['uart']
 AUTO_LOAD = ['sensor', 'climate', 'binary_sensor', 'switch']
 CONF_HUB_ID = 'comfoair'
 
-CONF_FAN_SUPPLY_AIR_PERCENTAGE = "fan_supply_air_percentage"
-CONF_FAN_EXHAUST_AIR_PERCENTAGE = "fan_exhaust_air_percentage"
+CONF_FAN_SUPPLY_PERCENTAGE = "fan_supply_percentage"
+CONF_FAN_EXHAUST_PERCENTAGE = "fan_exhaust_percentage"
 CONF_FAN_SPEED_SUPPLY = "fan_speed_supply"
 CONF_FAN_SPEED_EXHAUST = "fan_speed_exhaust"
 CONF_IS_BYPASS_VALVE_OPEN = "is_bypass_valve_open"
@@ -48,8 +48,8 @@ CONF_ERROR_CODE = "error_code"
 CONF_AUTO_BALANCE = "auto_balance"
 
 helper_comfoair_list = [
-    CONF_FAN_SUPPLY_AIR_PERCENTAGE,
-    CONF_FAN_EXHAUST_AIR_PERCENTAGE,
+    CONF_FAN_SUPPLY_PERCENTAGE,
+    CONF_FAN_EXHAUST_PERCENTAGE,
     CONF_FAN_SPEED_SUPPLY,
     CONF_FAN_SPEED_EXHAUST,
     CONF_IS_BYPASS_VALVE_OPEN,
@@ -81,13 +81,11 @@ helper_comfoair_list = [
 
 comfoair_sensors_schemas = cv.Schema(
     {
-cv.Optional(CONF_FAN_SUPPLY_AIR_PERCENTAGE): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
+cv.Optional(CONF_FAN_SUPPLY_PERCENTAGE): sensor.sensor_schema(
     unit_of_measurement=UNIT_PERCENT,
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
-cv.Optional(CONF_FAN_EXHAUST_AIR_PERCENTAGE): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
+cv.Optional(CONF_FAN_EXHAUST_PERCENTAGE): sensor.sensor_schema(
     unit_of_measurement=UNIT_PERCENT,
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),

@@ -331,11 +331,11 @@ protected:
         memcpy(connector_board_version_, msg, this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
         break;
       case COMFOAIR_GET_FAN_STATUS_RESPONSE: {
-          if (this->fan_supply_air_percentage != nullptr) {
-            this->fan_supply_air_percentage->publish_state(msg[0]);
+          if (this->fan_supply_percentage != nullptr) {
+            this->fan_supply_percentage->publish_state(msg[0]);
           }
-          if (this->fan_exhaust_air_percentage != nullptr) {
-            this->fan_exhaust_air_percentage->publish_state(msg[1]);
+          if (this->fan_exhaust_percentage != nullptr) {
+            this->fan_exhaust_percentage->publish_state(msg[1]);
           }
           if (this->fan_speed_supply != nullptr) {
             this->fan_speed_supply->publish_state(1875000.0f / this->get_uint16_(2));
@@ -650,8 +650,8 @@ protected:
   void set_name(const std::string &name) { this->name = name; }
 
 public: 
-  sensor::Sensor *fan_supply_air_percentage{nullptr};
-  sensor::Sensor *fan_exhaust_air_percentage{nullptr};
+  sensor::Sensor *fan_supply_percentage{nullptr};
+  sensor::Sensor *fan_exhaust_percentage{nullptr};
   sensor::Sensor *fan_speed_supply{nullptr};
   sensor::Sensor *fan_speed_exhaust{nullptr};
   sensor::Sensor *outside_air_temperature{nullptr};
@@ -680,8 +680,8 @@ public:
   sensor::Sensor *ewt_hours{nullptr};
   sensor::Sensor *error_code{nullptr};
 
-  void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
-  void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };
+  void set_fan_supply_percentage(sensor::Sensor *fan_supply_percentage) {this->fan_supply_percentage = fan_supply_percentage;};
+  void set_fan_exhaust_percentage(sensor::Sensor *fan_exhaust_percentage) {this->fan_exhaust_percentage =fan_exhaust_percentage; };
   void set_fan_speed_supply(sensor::Sensor *fan_speed_supply) {this->fan_speed_supply =fan_speed_supply; };
   void set_fan_speed_exhaust(sensor::Sensor *fan_speed_exhaust) {this->fan_speed_exhaust =fan_speed_exhaust; };
   void set_is_bypass_valve_open(binary_sensor::BinarySensor *is_bypass_valve_open) {this->is_bypass_valve_open =is_bypass_valve_open; };

@@ -41,9 +41,9 @@ comfoair:
   uart_id: uart_bus
   
   # Core Sensors
-  fan_supply_air_percentage:
+  fan_supply_percentage:
     name: "Fan supply (%)"
-  fan_exhaust_air_percentage:
+  fan_exhaust_percentage:
     name: "Fan exhaust (%)"
   fan_speed_supply:
     name: "Supply fan speed"

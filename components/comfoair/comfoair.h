@@ -11,6 +11,18 @@
 
 namespace esphome {
 namespace comfoair {
+class ComfoAirComponent;
+
+class ComfoAirAutoBalanceSwitch : public switch_::Switch {
+ public:
+  void set_parent(ComfoAirComponent *parent) { parent_ = parent; }
+  void write_state(bool state) override {
+    this->publish_state(state);
+  }
+ protected:
+  ComfoAirComponent *parent_{nullptr};
+};
+
 class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {
 public:
 

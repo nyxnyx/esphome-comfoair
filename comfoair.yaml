@@ -2,21 +2,25 @@ esphome:
   name: comfoair
   platform: ESP8266
   board: esp01_1m
-  includes:
-    - comfoair.h
 
+# To use locally from this repository, uncomment the 'local' source below
 external_components:
   - source:
       type: git
       url: https://github.com/nyxnyx/esphome-comfoair
     components: [comfoair]
+  # - source: 
+  #     type: local
+  #     path: components
+  #   components: [comfoair]
 
 wifi:
   ssid: 'your-wifi-ssid-here'
   password: 'put-your-wifi-password-here'
 
-# Disable uart logging
+# Disable UART logging to avoid interference with the ComfoAir communication
 logger:
+  level: DEBUG
   baud_rate: 0
 
 # Enable Home Assistant API
@@ -25,9 +29,6 @@ api:
 
 ota:
 
-sensor:
-binary_sensor:
-
 uart:
   id: uart_bus
   baud_rate: 9600
@@ -35,9 +36,11 @@ uart:
   rx_pin: RX 
 
 comfoair:
-  name: "ComfoAir 350"
   id: my_comfoair
+  name: "ComfoAir"
   uart_id: uart_bus
+  
+  # Core Sensors
   fan_supply_air_percentage:
     name: "Fan supply (%)"
   fan_exhaust_air_percentage:
@@ -46,10 +49,8 @@ comfoair:
     name: "Supply fan speed"
   fan_speed_exhaust:
     name: "Exhaust fan speed"
-  is_bypass_valve_open:
-    name: "Is bypas open?"
-  is_preheating:
-    name: "is preheating active?"
+    
+  # Temperature Sensors
   outside_air_temperature:
     name: "Outside temperature"
   supply_air_temperature:
@@ -61,27 +62,25 @@ comfoair:
   enthalpy_temperature:
     name: "Enthalpy temperature"
   ewt_temperature:
-    name: "EWT temperature "
+    name: "EWT temperature"
   reheating_temperature:
     name: "Reheating temperature"
   kitchen_hood_temperature:
     name: "Kitchen hood temperature"
-  return_air_level:
-    name: "Return level"
-  supply_air_level:
-    name: "Supply level"
-  is_supply_fan_active:
-    name: "Is supply fan active?"
-  is_filter_full:
-    name: "Is filter full?"
-  bypass_factor:
-    name: "Bypass factor"
-  bypass_step:
-    name: "Bypass step"
-  bypass_correction:
-    name: "Bypass correction"
+    
+  # Status & Binary Sensors
+  is_bypass_valve_open:
+    name: "Bypass Open"
+  is_preheating:
+    name: "Preheating Active"
   is_summer_mode:
-    name: "Is summer mode?"
+    name: "Summer Mode"
+  is_supply_fan_active:
+    name: "Supply Fan Active"
+  is_filter_full:
+    name: "Filter Change Required"
+  
+  # Operating Hours
   fan_hours_supply:
     name: "Supply Fan Hours"
   fan_hours_exhaust:
@@ -94,15 +93,21 @@ comfoair:
     name: "Filter Hours"
   ewt_hours:
     name: "EWT Hours"
-  error_code:
-    name: "Error Code"
+    
+  # Automation Features
   auto_balance:
     name: "Auto Temperature Balance"
+    
+  # Diagnostics
+  error_code:
+    name: "Last Error Code"
 
+# Example button to reset the filter timer after maintenance
 button:
   - platform: template
-    name: "Reset Filter"
+    name: "Reset Filter Timer"
+    icon: "mdi:filter-remove"
     on_press:
       then:
         - lambda: |-
-                id(my_comfoair)->reset_filter();
+            id(my_comfoair)->reset_filter();

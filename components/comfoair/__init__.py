@@ -89,14 +89,12 @@ cv.Optional(CONF_FAN_EXHAUST_AIR_PERCENTAGE): sensor.sensor_schema(
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_FAN_SPEED_SUPPLY): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
-    unit_of_measurement=UNIT_PERCENT,
-    accuracy_decimals=1,
+    unit_of_measurement="rpm",
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_FAN_SPEED_EXHAUST): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
-    unit_of_measurement=UNIT_PERCENT,
-    accuracy_decimals=1,
+    unit_of_measurement="rpm",
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_OUTSIDE_AIR_TEMPERATURE): sensor.sensor_schema(
     device_class=DEVICE_CLASS_TEMPERATURE,

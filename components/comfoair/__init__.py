@@ -13,7 +13,7 @@ ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.
 ComfoAirAutoBalanceSwitch = comfoair_ns.class_('ComfoAirAutoBalanceSwitch', switch.Switch)
 
 DEPENDENCIES=['uart']
-AUTO_LOAD = ['sensor', 'climate', 'binary_sensor']
+AUTO_LOAD = ['sensor', 'climate', 'binary_sensor', 'switch']
 CONF_HUB_ID = 'comfoair'
 
 CONF_FAN_SUPPLY_AIR_PERCENTAGE = "fan_supply_air_percentage"

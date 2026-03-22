@@ -1,77 +1,97 @@
-# ComfoAir
-Port of ComfoAir protocol to ESPHome.io firmware originally by @wichers modified by @nyxnyx
-to be installed as external_components.
+# ComfoAir ESPHome Component
 
-Add to your yaml configuration the definition of `external_components`:
-```
+This project provides a robust integration for Zehnder ComfoAir (350, 450, 550) heat recovery ventilation (HRV) units into [ESPHome](https://esphome.io).
+
+## Installation
+
+Add the following to your ESPHome YAML configuration:
+
+```yaml
 external_components:
   - source:
       type: git
       url: https://github.com/nyxnyx/esphome-comfoair
     components: [comfoair]
-```
-and than use it:
-```
+
 uart:
   id: uart_bus
-  rx_pin: 3
-  tx_pin: 1
   baud_rate: 9600
+  tx_pin: TX  # Adjust for your board
+  rx_pin: RX  # Adjust for your board
 
 comfoair:
-  name: "ComfoAir 350"
+  id: my_comfoair
+  name: "ComfoAir"
   uart_id: uart_bus
-  fan_supply_air_percentage:
-    name: "Fan supply (%)"
-  fan_exhaust_air_percentage:
-    name: "Fan exhaust (%)"
-  fan_speed_supply:
-    name: "Supply fan speed"
-  fan_speed_exhaust:
-    name: "Exhaust fan speed"
-  is_bypass_valve_open:
-    name: "Is bypas open?"
-  is_preheating:
-    name: "is preheating active?"
-  outside_air_temperature:
-    name: "Outside temperature"
-  supply_air_temperature:
-    name: "Supply temperature"
-  return_air_temperature:
-    name: "Return temperature"
-  exhaust_air_temperature:
-    name: "Exhaust temperature"
-  enthalpy_temperature:
-    name: "Enthalpy temperature"
-  ewt_temperature:
-    name: "EWT temperature "
-  reheating_temperature:
-    name: "Reheating temperature"
-  kitchen_hood_temperature:
-    name: "Kitchen hood temperature"
-  return_air_level:
-    name: "Return level"
-  supply_air_level:
-    name: "Supply level"
-  is_supply_fan_active:
-    name: "Is supply fan active?"
-  is_filter_full:
-    name: "Is filter full?"
-  bypass_factor:
-    name: "Bypass factor"
-  bypass_step:
-    name: "Bypass step"
-  bypass_correction:
-    name: "Bypass correction"
-  is_summer_mode:
-    name: "Is summer mode?"
+  # Add sensors/switches from the list below:
 ```
 
-The sensor defined here is a full list of sensor - if you remove sensor from yaml it will be not monitored.
+## Available Features
 
+Below is a complete list of all supported properties you can add under the `comfoair:` component.
 
-For visualization: 
+### Core Fan Sensors
+| Key | Type | Description | Unit |
+|-----|------|-------------|------|
+| `fan_supply_percentage` | Sensor | Current supply fan power (%) | % |
+| `fan_exhaust_percentage` | Sensor | Current exhaust fan power (%) | % |
+| `fan_speed_supply` | Sensor | Rotational speed of supply fan | rpm |
+| `fan_speed_exhaust` | Sensor | Rotational speed of exhaust fan | rpm |
 
-Have a look at simple_thermostat.yaml and https://github.com/nervetattoo/simple-thermostat
+### Temperature Sensors
+| Key | Type | Description | Unit |
+|-----|------|-------------|------|
+| `outside_air_temperature` | Sensor | Fresh air entering from outside (T1) | °C |
+| `supply_air_temperature` | Sensor | Fresh air entering the house (T2) | °C |
+| `return_air_temperature` | Sensor | Warm air leaving the rooms (T3) | °C |
+| `exhaust_air_temperature` | Sensor | Used air leaving to outside (T4) | °C |
+| `enthalpy_temperature` | Sensor | Enthalpy sensor value (if present) | °C |
+| `ewt_temperature` | Sensor | Ground heat exchanger value (if present) | °C |
 
-Or checkout https://github.com/wichers/lovelace-comfoair and follow the instructions.
+### Status & Binary Sensors
+| Key | Type | Description |
+|-----|------|-------------|
+| `is_bypass_valve_open` | Binary | State of the heat recovery bypass |
+| `is_preheating` | Binary | Internal pre-heater status |
+| `is_summer_mode` | Binary | Unit is in summer bypass mode |
+| `is_supply_fan_active` | Binary | Status of the supply fan |
+| `is_filter_full` | Binary | Indicates if filter maintenance is required |
+
+### Operating Hours (Counters)
+| Key | Unit | Description |
+|-----|------|-------------|
+| `fan_hours_supply` | h | Total runtime of supply fan |
+| `fan_hours_exhaust` | h | Total runtime of exhaust fan |
+| `bypass_hours` | h | Total hours bypass was open |
+| `preheater_hours` | h | Total hours pre-heater was active |
+| `filter_hours` | h | Hours since last filter change |
+| `ewt_hours` | h | Ground heat exchanger runtime |
+
+### Automation & Control
+| Key | Type | Description |
+|-----|------|-------------|
+| `auto_balance` | Switch | **Intelligent Speed Boost**: Automatically boosts fan speed when bypass conditions are favorable for reaching Target Temperature. Requires Climate component to be in `AUTO` fan mode. |
+| `error_code` | Sensor | Last reported error code for diagnostics. |
+
+---
+
+## Service Functions
+
+### Reset Filter Timer
+You can reset the filter maintenance timer directly from ESPHome using a template button:
+
+```yaml
+button:
+  - platform: template
+    name: "Reset Filter Timer"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->reset_filter();
+```
+
+## Visualization
+For a premium look in Lovelace, we recommend using the [Simple Thermostat Card](https://github.com/nervetattoo/simple-thermostat) or [lovelace-comfoair](https://github.com/wichers/lovelace-comfoair).
+
+---
+*Maintained by @nyxnyx. Forked from @wichers.*

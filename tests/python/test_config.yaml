@@ -21,3 +21,5 @@ comfoair:
   uart_id: uart_bus
   fan_hours_supply:
     name: "Fan Hours"
+  auto_balance:
+    name: "Auto Balance"

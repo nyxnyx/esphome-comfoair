@@ -96,6 +96,8 @@ comfoair:
     name: "EWT Hours"
   error_code:
     name: "Error Code"
+  auto_balance:
+    name: "Auto Temperature Balance"
 
 button:
   - platform: template

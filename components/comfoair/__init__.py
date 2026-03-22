@@ -6,6 +6,7 @@ from esphome.components import uart
 from esphome.components import climate
 from esphome.components import sensor
 from esphome.components import binary_sensor
+from esphome.components import switch
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
 ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent, uart.UARTDevice)
@@ -43,6 +44,7 @@ CONF_PREHEATER_HOURS = "preheater_hours"
 CONF_FILTER_HOURS = "filter_hours"
 CONF_EWT_HOURS = "ewt_hours"
 CONF_ERROR_CODE = "error_code"
+CONF_AUTO_BALANCE = "auto_balance"
 
 helper_comfoair_list = [
     CONF_FAN_SUPPLY_AIR_PERCENTAGE,
@@ -203,6 +205,9 @@ CONFIG_SCHEMA = cv.All(
     .extend(comfoair_sensors_schemas)
     .extend(cv.COMPONENT_SCHEMA)
     .extend(climate.climate_schema(ComfoAirComponent))
+    .extend({
+        cv.Optional(CONF_AUTO_BALANCE): switch.switch_schema(),
+    })
 )
 
 
@@ -223,3 +228,7 @@ async def to_code(config):
                 sens = await sensor.new_sensor(config[k])
             func = getattr(var, 'set_'+k)
             cg.add(func(sens))
+    
+    if CONF_AUTO_BALANCE in config:
+        sw = await switch.new_switch(config[CONF_AUTO_BALANCE])
+        cg.add(var.set_auto_balance_switch(sw))

@@ -6,6 +6,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/components/climate/climate_traits.h"
+#include "esphome/components/switch/switch.h"
 #include "messages.h"
 
 namespace esphome {
@@ -178,6 +179,7 @@ public:
         this->data_index_++;
       }
     }
+    this->run_auto_balance_();
   }
 
   float get_setup_priority() const override { return setup_priority::DATA; }
@@ -553,6 +555,59 @@ protected:
     this->write_command_(COMFOAIR_GET_TEMPERATURES_REQUEST, nullptr, 0);
   }
 
+  void run_auto_balance_() {
+    if (this->auto_balance_switch_ == nullptr || !this->auto_balance_switch_->state) {
+      return;
+    }
+
+    // Only run if user selected AUTO fan mode
+    if (this->fan_mode.has_value() && *this->fan_mode != climate::CLIMATE_FAN_AUTO) {
+      return;
+    }
+
+    // Only run every 5 minutes
+    uint32_t now = millis();
+    if (now - last_auto_balance_ > 300000) {
+      last_auto_balance_ = now;
+      
+      float outside = this->outside_air_temperature->state;
+      float return_air = this->return_air_temperature->state;
+      float target = this->target_temperature;
+      
+      if (std::isnan(outside) || std::isnan(return_air)) return;
+
+      ESP_LOGD(TAG, "Running auto balance: Outside=%.1f Internal=%.1f Target=%.1f Bypass=%s", 
+               outside, return_air, target, (this->is_bypass_valve_open->state ? "OPEN" : "CLOSED"));
+
+      bool favorable = false;
+      if (this->is_bypass_valve_open->state) {
+          // Bypass is open, check if it's actually helping (Summer cooling or Winter free heat)
+          if ((return_air > target + 0.5f && outside < return_air) || 
+              (return_air < target - 0.5f && outside > return_air)) {
+              favorable = true;
+          }
+      } else {
+          // Bypass is closed, heat exchanger is active. Always favorable if bypass is closed and we need heat/cool delta?
+          // Actually, if it's closed, the unit decided it's better to use heat recovery.
+          // We can still boost if delta is high to increase recovery.
+          if (std::abs(return_air - target) > 1.5f) {
+              favorable = true;
+          }
+      }
+
+      // If favorable condition and big delta, increase speed
+      if (favorable && std::abs(return_air - target) > 1.5f) {
+           ESP_LOGI(TAG, "Auto balance: Active and favorable. Increasing fan speed to HIGH.");
+           this->set_level_(4);
+      } else if (favorable) {
+           ESP_LOGI(TAG, "Auto balance: Active and favorable. Increasing fan speed to MEDIUM.");
+           this->set_level_(3);
+      } else {
+           this->set_level_(0); // Return to internal AUTO
+      }
+    }
+  }
+
   void get_operating_hours_() {
     ESP_LOGD(TAG, "getting operating hours");
     this->write_command_(COMFOAIR_GET_OPERATING_HOURS_REQUEST, nullptr, 0);
@@ -574,6 +629,7 @@ protected:
   uint8_t data_[30];
   uint8_t data_index_{0};
   int8_t update_counter_{-3};
+  uint32_t last_auto_balance_{0};
 
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
@@ -641,6 +697,8 @@ public:
   void set_filter_hours(sensor::Sensor *filter_hours) {this->filter_hours = filter_hours; };
   void set_ewt_hours(sensor::Sensor *ewt_hours) {this->ewt_hours = ewt_hours; };
   void set_error_code(sensor::Sensor *error_code) {this->error_code = error_code; };
+  switch_::Switch *auto_balance_switch_{nullptr};
+  void set_auto_balance_switch(switch_::Switch *sw) { this->auto_balance_switch_ = sw; }
 };
 
 }  // namespace comfoair

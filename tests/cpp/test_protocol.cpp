@@ -2,8 +2,9 @@
 #include <cassert>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
-// Minimal mock or just implementation copy for testing
+// Mocking some of the logic from comfoair.h
 namespace esphome {
 namespace comfoair {
 
@@ -23,26 +24,58 @@ uint8_t calculate_command_checksum(uint8_t command, uint8_t length, const uint8_
     }
 }
 
+// Updated balance logic for testing (returns target fan level)
+int run_auto_balance_logic(float outside, float return_air, float target, bool bypass_open) {
+    bool favorable = false;
+    if (bypass_open) {
+        if ((return_air > target + 0.5f && outside < return_air) || 
+            (return_air < target - 0.5f && outside > return_air)) {
+            favorable = true;
+        }
+    } else {
+        if (std::abs(return_air - target) > 1.5f) {
+            favorable = true;
+        }
+    }
+
+    if (favorable && std::abs(return_air - target) > 1.5f) {
+        return 4; // HIGH
+    } else if (favorable) {
+        return 3; // MEDIUM
+    }
+    return 0; // AUTO
+}
+
 } // namespace comfoair
 } // namespace esphome
 
 using namespace esphome::comfoair;
 
 int main() {
-    std::cout << "Running C++ Protocol Tests..." << std::endl;
+    std::cout << "Running Updated C++ Protocol & Logic Tests..." << std::endl;
 
-    // Test Case 1: GET_BOOTLOADER_VERSION (0x67) with no data
-    uint8_t cs1 = calculate_command_checksum(0x67, 0, nullptr);
-    assert(cs1 == 0x14); // 0x67 + 0xad = 0x114
-    std::cout << "Test 1 Passed: GET_BOOTLOADER_VERSION checksum" << std::endl;
+    // Checksum tests
+    assert(calculate_command_checksum(0x67, 0, nullptr) == 0x14);
+    assert(calculate_command_checksum(0x99, 1, (const uint8_t[]){0x02}) == 0x49);
 
-    // Test Case 2: SET_LEVEL (0x99) with length 1 and data 0x02 (Level 2)
-    uint8_t data2[] = {0x02};
-    uint8_t cs2 = calculate_command_checksum(0x99, 1, data2);
-    // 0x99 + 1 + (0x02 + 0xad) = 0x99 + 1 + 0xaf = 0x149 & 0xff = 0x49
-    assert(cs2 == 0x49);
-    std::cout << "Test 2 Passed: SET_LEVEL checksum" << std::endl;
+    // Auto-balance logic tests (Fan Speed Management)
+    
+    // Scenario 1: Summer night, bypass is OPEN, cooler outside.
+    // Result: Boost fan speed to help cooling.
+    assert(run_auto_balance_logic(18.0f, 25.0f, 22.0f, true) == 4); // delta 3.0 > 1.5 -> HIGH
+    std::cout << "Test: Auto-balance Boost (Summer Cooling) - Passed" << std::endl;
 
-    std::cout << "All C++ tests passed!" << std::endl;
+    // Scenario 2: Summer day, bypass is CLOSED (unit decided to keep coolness).
+    // Result: Boost fan speed only if delta is high to increase recovery efficiency? 
+    // Actually, in our logic: if closed and delta > 1.5 -> boost.
+    assert(run_auto_balance_logic(35.0f, 26.0f, 22.0f, false) == 4);
+    std::cout << "Test: Auto-balance Boost (Heat Recovery) - Passed" << std::endl;
+
+    // Scenario 3: Bypass open but condition UNFAVORABLE (e.g. it's hot inside but even hotter outside).
+    // Result: Don't boost speed (let the unit handle it, maybe it's still closing the bypass).
+    assert(run_auto_balance_logic(35.0f, 28.0f, 22.0f, true) == 0);
+    std::cout << "Test: Auto-balance No Boost (Unfavorable) - Passed" << std::endl;
+
+    std::cout << "All tests passed successfully!" << std::endl;
     return 0;
 }

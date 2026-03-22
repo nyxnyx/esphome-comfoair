@@ -506,8 +506,8 @@ protected:
   }
 
   void get_fan_status_() {
-    if (this->fan_supply_air_percentage != nullptr ||
-        this->fan_exhaust_air_percentage != nullptr ||
+    if (this->fan_supply_percentage != nullptr ||
+        this->fan_exhaust_percentage != nullptr ||
         this->fan_speed_supply != nullptr ||
         this->fan_speed_exhaust != nullptr) {
       ESP_LOGD(TAG, "getting fan status");

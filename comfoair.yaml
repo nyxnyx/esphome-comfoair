@@ -87,17 +87,6 @@ comfoair:
   supply_air_level:
     name: "Supply air level"
   
-text_sensor:
-  - platform: template
-    name: "Filter Status"
-    lambda: |-
-      if (id(comfoair_is_filter_full).state) {
-        return {"Full"};
-      } else {
-        return {"Ok"};
-      }
-    update_interval: 60s
-  
   # Operating Hours
   fan_hours_supply:
     name: "Supply Fan Hours"
@@ -119,6 +108,17 @@ text_sensor:
   # Diagnostics
   error_code:
     name: "Last Error Code"
+
+text_sensor:
+  - platform: template
+    name: "Filter Status"
+    lambda: |-
+      if (id(comfoair_is_filter_full).state) {
+        return {"Full"};
+      } else {
+        return {"Ok"};
+      }
+    update_interval: 60s
 
 # Example button to reset the filter timer after maintenance
 button:

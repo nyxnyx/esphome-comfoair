@@ -52,13 +52,13 @@ comfoair:
     
   # Temperature Sensors
   outside_air_temperature:
-    name: "Outside air temperature"
+    name: "Outside temperature"
   supply_air_temperature:
-    name: "Supply air temperature"
+    name: "Supply temperature"
   return_air_temperature:
-    name: "Return air temperature"
+    name: "Return temperature"
   exhaust_air_temperature:
-    name: "Exhaust air temperature"
+    name: "Exhaust temperature"
   enthalpy_temperature:
     name: "Enthalpy temperature"
   ewt_temperature:

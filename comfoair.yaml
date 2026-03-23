@@ -46,9 +46,9 @@ comfoair:
   fan_exhaust_percentage:
     name: "Fan exhaust (%)"
   fan_speed_supply:
-    name: "Intake fan speed rpm"
+    name: "Supply fan speed"
   fan_speed_exhaust:
-    name: "Exhaust fan speed rpm"
+    name: "Exhaust fan speed"
     
   # Temperature Sensors
   outside_air_temperature:
@@ -70,22 +70,22 @@ comfoair:
     
   # Status & Binary Sensors
   is_bypass_valve_open:
-    name: "Bypass valve open"
+    name: "Is bypas open"
   is_preheating:
-    name: "Preheating state"
+    name: "Is preheating active"
   is_summer_mode:
-    name: "Summer mode"
+    name: "Is summer mode"
   is_supply_fan_active:
-    name: "Supply fan active"
+    name: "Is supply fan active"
   is_filter_full:
-    name: "Filter Change Required"
+    name: "Is filter full"
     id: comfoair_is_filter_full
     
   # Ventilation Levels (required by the card)
   return_air_level:
-    name: "Return air level"
+    name: "Return level"
   supply_air_level:
-    name: "Supply air level"
+    name: "Supply level"
   
   # Operating Hours
   fan_hours_supply:

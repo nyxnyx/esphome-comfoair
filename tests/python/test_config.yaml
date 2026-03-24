@@ -19,7 +19,44 @@ comfoair:
   name: "ComfoAir 350 Test"
   id: my_comfoair
   uart_id: uart_bus
+  
+  # Cover all sensor types
+  fan_speed_supply:
+    name: "Fan Speed"
+  outside_air_temperature:
+    name: "Outside Temp"
+  fan_supply_percentage:
+    name: "Fan Power"
+  is_bypass_valve_open:
+    name: "Bypass Open"
   fan_hours_supply:
     name: "Fan Hours"
+  return_air_level:
+    name: "Return Level"
+  error_code:
+    name: "Error Code"
+    
+  # Automation
   auto_balance:
     name: "Auto Balance"
+
+# Template components that interact with the main component
+binary_sensor:
+  - platform: template
+    name: "Is bypas open"
+    lambda: |-
+      return true;
+
+text_sensor:
+  - platform: template
+    name: "Filter Status"
+    lambda: |-
+      return {"Ok"};
+
+button:
+  - platform: template
+    name: "Reset Filter"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->reset_filter();

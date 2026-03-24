@@ -39,7 +39,19 @@ A sophisticated thermal management layer that adjusts fan levels (0-3) based on 
 - **Access Control**: Forward-declared components must use `friend class` declarations to allow switches to call protected logic methods like `run_auto_balance_`.
 - **Circular Dependencies**: Implement method bodies (like `write_state`) using `inline` at the end of the header file, after all related classes are fully defined.
 
-## Usage in Coding Tasks
-When assisting with ComfoAir, always verify the checksum logic using the provided C++ tests and ensure that any new sensors follow the naming conventions established for dashboard compatibility.
+## Testing and Verification
 
-See `resources/` for detailed protocol mappings and balancing formulas.
+To ensure robust changes, always run the full test suite before releasing:
+
+### 1. Python Configuration & Code-gen Test
+Validates YAML schema and ensures `to_code` logic (Python->C++ conversion) is correct.
+- **Command**: `esphome compile --no-binary tests/python/test_config.yaml`
+- **Why**: Standard `esphome config` only checks YAML. Using `compile --no-binary` triggers the actual registration of components and catches `ValueError` inheritance issues early.
+
+### 2. C++ Protocol Logic Test
+Validates the low-level Zehnder protocol parser and special logic (like `autobalance` formulas).
+- **Command**: `make test-cpp`
+- **Location**: `tests/cpp/test_protocol.cpp`
+
+## Usage in Coding Tasks
+When assisting with ComfoAir, always verify the checksum logic using the provided C++ tests and ensure that any new sensors follow the naming conventions established for dashboard compatibility. Run `make run-all` to ensure no regressions were introduced.

@@ -10,7 +10,7 @@ from esphome.components import switch
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
 ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent, uart.UARTDevice)
-ComfoAirAutoBalanceSwitch = comfoair_ns.class_('ComfoAirAutoBalanceSwitch', switch.Switch)
+ComfoAirAutoBalanceSwitch = comfoair_ns.class_('ComfoAirAutoBalanceSwitch', switch.Switch, cg.Component)
 
 DEPENDENCIES=['uart']
 AUTO_LOAD = ['sensor', 'climate', 'binary_sensor', 'switch']

@@ -13,12 +13,12 @@ namespace esphome {
 namespace comfoair {
 class ComfoAirComponent;
 
-class ComfoAirAutoBalanceSwitch : public switch_::Switch {
+class ComfoAirComponent;
+
+class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
  public:
   void set_parent(ComfoAirComponent *parent) { parent_ = parent; }
-  void write_state(bool state) override {
-    this->publish_state(state);
-  }
+  void write_state(bool state) override;
  protected:
   ComfoAirComponent *parent_{nullptr};
 };
@@ -567,7 +567,7 @@ protected:
     this->write_command_(COMFOAIR_GET_TEMPERATURES_REQUEST, nullptr, 0);
   }
 
-  void run_auto_balance_() {
+  void run_auto_balance_(bool force = false) {
     if (this->auto_balance_switch_ == nullptr || !this->auto_balance_switch_->state) {
       return;
     }
@@ -577,46 +577,59 @@ protected:
       return;
     }
 
-    // Only run every 5 minutes
+    // Only run every 5 minutes unless forced
     uint32_t now = millis();
-    if (now - last_auto_balance_ > 300000) {
+    if (force || now - last_auto_balance_ > 300000) {
       last_auto_balance_ = now;
       
-      float outside = this->outside_air_temperature->state;
+      float supply = this->supply_air_temperature->state;
       float return_air = this->return_air_temperature->state;
       float target = this->target_temperature;
       
-      if (std::isnan(outside) || std::isnan(return_air)) return;
+      if (std::isnan(supply) || std::isnan(return_air)) return;
 
-      ESP_LOGD(TAG, "Running auto balance: Outside=%.1f Internal=%.1f Target=%.1f Bypass=%s", 
-               outside, return_air, target, (this->is_bypass_valve_open->state ? "OPEN" : "CLOSED"));
+      // Real-time thermal effect: positive = cooling the house, negative = heating the house
+      float thermal_power = return_air - supply;
+      // Thermal demand: positive = we want to cool down, negative = we want to heat up
+      float demand = return_air - target;
 
-      bool favorable = false;
-      if (this->is_bypass_valve_open->state) {
-          // Bypass is open, check if it's actually helping (Summer cooling or Winter free heat)
-          if ((return_air > target + 0.5f && outside < return_air) || 
-              (return_air < target - 0.5f && outside > return_air)) {
-              favorable = true;
-          }
-      } else {
-          // Bypass is closed, heat exchanger is active. Always favorable if bypass is closed and we need heat/cool delta?
-          // Actually, if it's closed, the unit decided it's better to use heat recovery.
-          // We can still boost if delta is high to increase recovery.
-          if (std::abs(return_air - target) > 1.5f) {
-              favorable = true;
+      bool is_helping = false;
+      // We consider the system is helping if the thermal power has the same sign as the demand
+      // (e.g. we want to cool (+) and the supply air is cooler than return air (+))
+      if (std::abs(demand) > 0.3f) {
+          if ((demand > 0 && thermal_power > 0.5f) || (demand < 0 && thermal_power < -0.5f)) {
+              is_helping = true;
           }
       }
 
-      // If favorable condition and big delta, increase speed
-      if (favorable && std::abs(return_air - target) > 1.5f) {
-           ESP_LOGI(TAG, "Auto balance: Active and favorable. Increasing fan speed to HIGH.");
-           this->set_level_(4);
-      } else if (favorable) {
-           ESP_LOGI(TAG, "Auto balance: Active and favorable. Increasing fan speed to MEDIUM.");
-           this->set_level_(3);
-      } else {
-           this->set_level_(0); // Return to internal AUTO
+      // Safety: if preheating is active, don't boost fans (avoid wasting energy)
+      if (this->is_preheating != nullptr && this->is_preheating->state && is_helping) {
+          ESP_LOGD(TAG, "Auto balance: System is helping but Pre-heating is ACTIVE. Throttling boost.");
+          is_helping = false; 
       }
+
+      int new_level = 2; // Default to Stage 1 (Standard)
+      float abs_demand = std::abs(demand);
+
+      if (is_helping) {
+          // Proportional response
+          if (abs_demand > 3.0f)      new_level = 4; // Stage 3 (Boost)
+          else if (abs_demand > 1.2f) new_level = 3; // Stage 2 (High)
+          else                        new_level = 2; // Stage 1 (Standard)
+          
+          ESP_LOGI(TAG, "Auto balance: HELPING (Power: %.1fC). Demand: %.1fC -> Level %d", 
+                   thermal_power, demand, new_level);
+      } else {
+          // System is counter-productive or we are at target
+          if (abs_demand > 1.0f) {
+              new_level = 1; // Stage 0 (Absent) - Minimize unproductive air exchange
+              ESP_LOGI(TAG, "Auto balance: COUNTER-PRODUCTIVE (Power: %.1fC). Reducing to Minimum (Level 1).", thermal_power);
+          } else {
+              new_level = 2; // Stage 1 (Standard) - Normal ventilation near target
+          }
+      }
+      
+      this->set_level_(new_level);
     }
   }
 
@@ -712,6 +725,14 @@ public:
   switch_::Switch *auto_balance_switch_{nullptr};
   void set_auto_balance_switch(switch_::Switch *sw) { this->auto_balance_switch_ = sw; }
 };
+
+inline void ComfoAirAutoBalanceSwitch::write_state(bool state) {
+  ESP_LOGD("comfoair.switch", "Auto Balance switch turned %s", state ? "ON" : "OFF");
+  this->publish_state(state);
+  if (this->parent_ != nullptr) {
+      this->parent_->run_auto_balance_(true);
+  }
+}
 
 }  // namespace comfoair
 }  // namespace esphome

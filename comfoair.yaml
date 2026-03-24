@@ -70,7 +70,8 @@ comfoair:
     
   # Status & Binary Sensors
   is_bypass_valve_open:
-    name: "Is bypas open"
+    name: "Bypass valve open"
+    id: comfoair_bypass_real
   is_preheating:
     name: "Is preheating active"
   is_summer_mode:
@@ -108,6 +109,12 @@ comfoair:
   # Diagnostics
   error_code:
     name: "Last Error Code"
+
+binary_sensor:
+  - platform: template
+    name: "Is bypas open"
+    lambda: |-
+      return id(comfoair_bypass_real).state;
 
 text_sensor:
   - platform: template

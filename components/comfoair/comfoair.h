@@ -24,6 +24,7 @@ class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
 };
 
 class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {
+  friend class ComfoAirAutoBalanceSwitch;
 public:
 
   // Poll every 600ms

@@ -229,6 +229,8 @@ async def to_code(config):
             cg.add(func(sens))
     
     if CONF_AUTO_BALANCE in config:
-        sw = await switch.new_switch(config[CONF_AUTO_BALANCE])
+        sw = cg.new_Pvariable(config[CONF_AUTO_BALANCE][CONF_ID])
+        await cg.register_component(sw, config[CONF_AUTO_BALANCE])
+        await switch.register_switch(sw, config[CONF_AUTO_BALANCE])
         cg.add(sw.set_parent(var))
         cg.add(var.set_auto_balance_switch(sw))

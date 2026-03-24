@@ -18,6 +18,10 @@ class ComfoAirComponent;
 class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
  public:
   void set_parent(ComfoAirComponent *parent) { parent_ = parent; }
+  void setup() override {
+    bool initial_state = this->get_initial_state().value_or(false);
+    this->publish_state(initial_state);
+  }
   void write_state(bool state) override;
  protected:
   ComfoAirComponent *parent_{nullptr};
@@ -570,11 +574,6 @@ protected:
 
   void run_auto_balance_(bool force = false) {
     if (this->auto_balance_switch_ == nullptr || !this->auto_balance_switch_->state) {
-      return;
-    }
-
-    // Only run if user selected AUTO fan mode
-    if (this->fan_mode.has_value() && *this->fan_mode != climate::CLIMATE_FAN_AUTO) {
       return;
     }
 

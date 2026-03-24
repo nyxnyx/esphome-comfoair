@@ -24,22 +24,22 @@ The ComfoAir protocol uses an RS232 interface at 9600 bps, 8 data bits, no parit
 
 ## Implementation Patterns
 
-### Auto Temperature Balance
-An intelligent thermal management layer that adjusts fan levels based on internal/external delta:
-1. Only active in `AUTO` fan mode.
-2. Monitors unit's internal bypass decision.
-3. If bypass is helping (Cooling with outside air/Heating with warmer outside air):
-   - Boosts speed to Level 3 (`Medium`).
-   - If Delta > 1.5C, boosts to Level 4 (`High`).
-4. Prevents unnecessary wear by only running every 5 minutes.
+### Auto Temperature Balance (Thermal Power Guidance)
+A sophisticated thermal management layer that adjusts fan levels (0-3) based on real-time heat/cool exchange:
+1. **Core Logic**: Uses `Supply Air Temp` vs `Return Air Temp` to calculate positive/negative **Thermal Power**.
+2. **Heuristic**: Matches Demand (Target vs Room) against current Power.
+   - **Helping**: If supplying cooler air while cooling is needed (or warmer air while heating is needed), it ramps up fan speed (Level 2-4) proportionally to the demand.
+   - **Counter-productive**: If the air exchange is moving the house temp in the wrong direction, it throttles to **Level 1 (Absent)** to minimize loss.
+3. **Optimizations**: 
+   - Throttles boost if `is_preheating` is active to save energy.
+   - Includes a 5-minute debounce timer but allows immediate forced recalculation on switch toggles.
 
-### Lovelace Card Compatibility
-Compatibility with `lovelace-comfoair` requires specific entity IDs:
-- Temperatures: `sensor.comfoair_<site>_air_temperature`
-- Fans: `sensor.comfoair_intake_fan_speed_rpm`, `sensor.comfoair_exhaust_fan_speed_rpm`
-- Filter: A text sensor `sensor.comfoair_filter_status` returning "Full" or "Ok".
+### Technical Implementation Notes
+- **Component Lifecycle**: Custom switches must inherit from BOTH `Switch` and `Component` and be registered via `register_component` to ensure state persistence and proper synchronization with Home Assistant.
+- **Access Control**: Forward-declared components must use `friend class` declarations to allow switches to call protected logic methods like `run_auto_balance_`.
+- **Circular Dependencies**: Implement method bodies (like `write_state`) using `inline` at the end of the header file, after all related classes are fully defined.
 
 ## Usage in Coding Tasks
 When assisting with ComfoAir, always verify the checksum logic using the provided C++ tests and ensure that any new sensors follow the naming conventions established for dashboard compatibility.
 
-See `resources/` for detailed protocol mappings.
+See `resources/` for detailed protocol mappings and balancing formulas.

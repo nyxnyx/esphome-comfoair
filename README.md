@@ -70,8 +70,28 @@ Below is a complete list of all supported properties you can add under the `comf
 ### Automation & Control
 | Key | Type | Description |
 |-----|------|-------------|
-| `auto_balance` | Switch | **Intelligent Speed Boost**: Automatically boosts fan speed when bypass conditions are favorable for reaching Target Temperature. Requires Climate component to be in `AUTO` fan mode. |
+| `auto_balance` | Switch | **Intelligent Speed Boost**: Automatically adjusts fan speed (0-3) based on thermal efficiency. See details below. |
 | `error_code` | Sensor | Last reported error code for diagnostics. |
+
+## Feature: Auto Temperature Balance
+
+The `auto_balance` feature (Thermal Power Guidance) intelligently adjusts the fan speed to reach your comfort temperature faster while minimizing energy loss.
+
+### Requirements
+To use this feature, you must have the following sensors enabled in your `comfoair:` configuration:
+- `supply_air_temperature`
+- `return_air_temperature`
+- `auto_balance` (the switch)
+- `is_preheating` (optional, but recommended for energy saving)
+
+### How it works
+1. **Activate the Switch**: Turn on the "Auto Temperature Balance" switch in Home Assistant.
+2. **Set Target Temperature**: Choose your desired comfort temperature (e.g., 21°C) in your Climate card.
+
+**Automation Logic**:
+- **Helping Mode**: If the unit provides air that moves the house towards the target (e.g., 18°C supply when you want 21°C cooling), it will **boost the fans** (up to Stage 3).
+- **Protective Mode**: If the outside air is counter-productive (e.g., 30°C supply when you want 21°C cooling), it will **reduce speed to Stage 0 (Absent)** to preserve the indoor climate.
+- **Safety**: If `is_preheating` is active, the system throttles speed to avoid excessive heating costs.
 
 ---
 

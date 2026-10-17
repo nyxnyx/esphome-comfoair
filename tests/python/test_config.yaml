@@ -40,6 +40,22 @@ comfoair:
     name: "Exhaust Absent"
   fan_supply_high:
     name: "Supply High"
+  is_supply_fan_fault:
+    name: "Supply Fan Fault"
+  is_t1_sensor_fault:
+    name: "T1 Sensor Fault"
+  is_bypass_fault:
+    name: "Bypass Fault"
+  delay_bathroom_switch_on:
+    name: "Bathroom Switch-on Delay"
+  delay_bathroom_switch_off:
+    name: "Bathroom Switch-off Delay"
+  analog_input_1:
+    name: "Analog 1 (0-10V)"
+  ewt_state:
+    name: "EWT State"
+  ewt_temperature_low:
+    name: "EWT Temp Low"
     
   # Automation
   auto_balance:
@@ -71,3 +87,27 @@ button:
       then:
         - lambda: |-
             id(my_comfoair)->set_ventilation_levels(15, 30, 45, 70, 15, 30, 45, 70);
+  - platform: template
+    name: "Configure Delays"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->set_delays(2, 10, 30, 16);
+  - platform: template
+    name: "Set PC Master Mode"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->set_rs232_mode(1);
+  - platform: template
+    name: "Force Open Bypass"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->set_bypass_mode(2);
+  - platform: template
+    name: "Configure EWT"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->set_ewt(7, 23, 21);

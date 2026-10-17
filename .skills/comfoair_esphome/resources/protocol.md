@@ -54,3 +54,30 @@ Each command or response frame follows this structure:
 - `msg[12-14]`: Filter Hours
 - `msg[15-17]`: EWT Hours
 - `msg[18-19]`: Pre-heater Status
+
+### 0xD9 / 0xDA: COMFOAIR_GET_ERROR_STATE_RESPONSE (17 bytes)
+- `msg[0]`: Current raw error code (E-00 to E-99)
+- `msg[5]`: Temperature sensor faults (bit 0=T1, bit 1=T2, bit 2=T3, bit 3=T4, bit 4=Preheater)
+- `msg[6]`: Motor and damper faults (bit 0=Supply Fan, bit 1=Exhaust Fan, bit 2=Bypass)
+- `msg[8]`: Filter replacement flag (0=OK, 1=Dirty)
+
+### 0xC9 / 0xCA: COMFOAIR_GET_DELAYS_RESPONSE & 0xCB SET (8 bytes)
+- `msg[0]`: Bathroom switch-on delay (P11 in minutes)
+- `msg[1]`: Bathroom switch-off overrun delay (P12 in minutes)
+- `msg[2]`: Ventilation boost delay (P17 in minutes)
+- `msg[3]`: Filter timer weeks (P13 in weeks)
+
+### 0x13 / 0x14: COMFOAIR_GET_ANALOG_INPUTS_RESPONSE (4 bytes)
+- `msg[0-3]`: Raw analog 0-10V inputs 1, 2, 3, 4 (voltage / percentage)
+
+### 0xEB / 0xEC: COMFOAIR_GET_EWT_REHEATER_RESPONSE & 0xED SET (7 bytes)
+- `msg[0]`: EWT damper state (0=closed, 1=open)
+- `msg[1]`: EWT lower activation threshold
+- `msg[2]`: EWT upper activation threshold
+- `msg[3]`: Secondary reheater state
+- `msg[4]`: Reheater target temperature
+
+### 0xD5 / 0xD6: COMFOAIR_GET_MAIN_STATUS_RESPONSE & 0xD7 SET (8 bytes)
+- `msg[0]`: Damper flags (bit 1=force close, bit 2=force open, bit 3=party mode, bit 4=chimney mode)
+- `msg[1]`: Party mode remaining timer (minutes)
+- `msg[2]`: Chimney mode remaining timer (minutes)

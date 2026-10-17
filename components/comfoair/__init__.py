@@ -55,6 +55,34 @@ CONF_EWT_HOURS = "ewt_hours"
 CONF_ERROR_CODE = "error_code"
 CONF_AUTO_BALANCE = "auto_balance"
 
+# Diagnostic Faults (0xDA)
+CONF_IS_SUPPLY_FAN_FAULT = "is_supply_fan_fault"
+CONF_IS_EXHAUST_FAN_FAULT = "is_exhaust_fan_fault"
+CONF_IS_T1_SENSOR_FAULT = "is_t1_sensor_fault"
+CONF_IS_T2_SENSOR_FAULT = "is_t2_sensor_fault"
+CONF_IS_T3_SENSOR_FAULT = "is_t3_sensor_fault"
+CONF_IS_T4_SENSOR_FAULT = "is_t4_sensor_fault"
+CONF_IS_BYPASS_FAULT = "is_bypass_fault"
+CONF_IS_PREHEATER_FAULT = "is_preheater_fault"
+
+# Delays (0xCA)
+CONF_DELAY_BATHROOM_SWITCH_ON = "delay_bathroom_switch_on"
+CONF_DELAY_BATHROOM_SWITCH_OFF = "delay_bathroom_switch_off"
+CONF_DELAY_BOOST = "delay_boost"
+CONF_DELAY_FILTER_WEEKS = "delay_filter_weeks"
+
+# Analog Inputs (0x14)
+CONF_ANALOG_INPUT_1 = "analog_input_1"
+CONF_ANALOG_INPUT_2 = "analog_input_2"
+CONF_ANALOG_INPUT_3 = "analog_input_3"
+CONF_ANALOG_INPUT_4 = "analog_input_4"
+
+# EWT & Reheater (0xEC)
+CONF_EWT_STATE = "ewt_state"
+CONF_REHEATER_STATE = "reheater_state"
+CONF_EWT_TEMPERATURE_LOW = "ewt_temperature_low"
+CONF_EWT_TEMPERATURE_HIGH = "ewt_temperature_high"
+
 helper_comfoair_list = [
     CONF_FAN_SUPPLY_PERCENTAGE,
     CONF_FAN_EXHAUST_PERCENTAGE,
@@ -93,6 +121,26 @@ helper_comfoair_list = [
     CONF_FILTER_HOURS,
     CONF_EWT_HOURS,
     CONF_ERROR_CODE,
+    CONF_IS_SUPPLY_FAN_FAULT,
+    CONF_IS_EXHAUST_FAN_FAULT,
+    CONF_IS_T1_SENSOR_FAULT,
+    CONF_IS_T2_SENSOR_FAULT,
+    CONF_IS_T3_SENSOR_FAULT,
+    CONF_IS_T4_SENSOR_FAULT,
+    CONF_IS_BYPASS_FAULT,
+    CONF_IS_PREHEATER_FAULT,
+    CONF_DELAY_BATHROOM_SWITCH_ON,
+    CONF_DELAY_BATHROOM_SWITCH_OFF,
+    CONF_DELAY_BOOST,
+    CONF_DELAY_FILTER_WEEKS,
+    CONF_ANALOG_INPUT_1,
+    CONF_ANALOG_INPUT_2,
+    CONF_ANALOG_INPUT_3,
+    CONF_ANALOG_INPUT_4,
+    CONF_EWT_STATE,
+    CONF_REHEATER_STATE,
+    CONF_EWT_TEMPERATURE_LOW,
+    CONF_EWT_TEMPERATURE_HIGH,
 ]
 
 comfoair_sensors_schemas = cv.Schema(
@@ -249,6 +297,62 @@ cv.Optional(CONF_EWT_HOURS): sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_ERROR_CODE): sensor.sensor_schema(
     accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_IS_SUPPLY_FAN_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_EXHAUST_FAN_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_T1_SENSOR_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_T2_SENSOR_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_T3_SENSOR_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_T4_SENSOR_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_BYPASS_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_IS_PREHEATER_FAULT): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_PROBLEM).extend(),
+cv.Optional(CONF_DELAY_BATHROOM_SWITCH_ON): sensor.sensor_schema(
+    unit_of_measurement="min",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_DELAY_BATHROOM_SWITCH_OFF): sensor.sensor_schema(
+    unit_of_measurement="min",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_DELAY_BOOST): sensor.sensor_schema(
+    unit_of_measurement="min",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_DELAY_FILTER_WEEKS): sensor.sensor_schema(
+    unit_of_measurement="w",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ANALOG_INPUT_1): sensor.sensor_schema(
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ANALOG_INPUT_2): sensor.sensor_schema(
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ANALOG_INPUT_3): sensor.sensor_schema(
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ANALOG_INPUT_4): sensor.sensor_schema(
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_EWT_STATE): sensor.sensor_schema(
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_REHEATER_STATE): sensor.sensor_schema(
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_EWT_TEMPERATURE_LOW): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_TEMPERATURE,
+    unit_of_measurement=UNIT_CELSIUS,
+    accuracy_decimals=1,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_EWT_TEMPERATURE_HIGH): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_TEMPERATURE,
+    unit_of_measurement=UNIT_CELSIUS,
+    accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 })
 

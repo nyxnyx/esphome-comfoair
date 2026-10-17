@@ -160,10 +160,19 @@ public:
       case 8:
         get_preheater_status_();
         break;
+      case 9:
+        get_delays_();
+        break;
+      case 10:
+        get_analog_inputs_();
+        break;
+      case 11:
+        get_ewt_reheater_status_();
+        break;
     }
 
     update_counter_++;
-    if (update_counter_ > 8)
+    if (update_counter_ > 11)
       update_counter_ = 0;
   }
 
@@ -225,6 +234,45 @@ public:
              ex_absent, ex_low, ex_medium, ex_high,
              su_absent, su_low, su_medium, su_high, current_speed);
     this->write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, payload, sizeof(payload));
+  }
+
+  void set_delays(uint8_t bath_on, uint8_t bath_off, uint8_t boost, uint8_t filter_weeks) {
+    uint8_t payload[COMFOAIR_SET_DELAYS_LENGTH] = {
+      bath_on, bath_off, boost, filter_weeks, 0, 0, 0, 0
+    };
+    ESP_LOGI(TAG, "Setting delays: BathOn=%u min, BathOff=%u min, Boost=%u min, Filter=%u wks",
+             bath_on, bath_off, boost, filter_weeks);
+    this->write_command_(COMFOAIR_SET_DELAYS_REQUEST, payload, sizeof(payload));
+  }
+
+  void set_rs232_mode(uint8_t mode) {
+    uint8_t payload[COMFOAIR_SET_RS232_MODE_LENGTH] = {mode};
+    ESP_LOGI(TAG, "Setting RS232 mode to %u (1=PC Master, 0=Normal)", mode);
+    this->write_command_(COMFOAIR_SET_RS232_MODE_REQUEST, payload, sizeof(payload));
+  }
+
+  void set_main_status(uint8_t flags, uint8_t party_timer = 0, uint8_t chimney_timer = 0) {
+    uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {
+      flags, party_timer, chimney_timer, 0, 0, 0, 0, 0
+    };
+    ESP_LOGI(TAG, "Setting main status: flags=0x%02X, party=%u, chimney=%u", flags, party_timer, chimney_timer);
+    this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, payload, sizeof(payload));
+  }
+
+  void set_bypass_mode(uint8_t mode) {
+    // 0 = Auto, 1 = Force Close, 2 = Force Open
+    uint8_t flags = 0;
+    if (mode == 1) flags = 0x02; // forced close
+    else if (mode == 2) flags = 0x04; // forced open
+    this->set_main_status(flags);
+  }
+
+  void set_ewt(uint8_t ewt_low, uint8_t ewt_high, uint8_t reheater_temp = 0) {
+    uint8_t payload[COMFOAIR_SET_EWT_REHEATER_LENGTH] = {
+      1, ewt_low, ewt_high, reheater_temp, 0
+    };
+    ESP_LOGI(TAG, "Setting EWT/Reheater: Low=%u C, High=%u C, Reheater=%u C", ewt_low, ewt_high, reheater_temp);
+    this->write_command_(COMFOAIR_SET_EWT_REHEATER_REQUEST, payload, sizeof(payload));
   }
 
   void set_name(const char* value) {}
@@ -532,6 +580,36 @@ protected:
         if (this->error_code != nullptr) {
           this->error_code->publish_state(msg[0]); // Just taking the first error byte as code for now
         }
+        // Bitwise fault diagnostics
+        if (this->is_t1_sensor_fault != nullptr) this->is_t1_sensor_fault->publish_state((msg[5] & (1 << 0)) != 0);
+        if (this->is_t2_sensor_fault != nullptr) this->is_t2_sensor_fault->publish_state((msg[5] & (1 << 1)) != 0);
+        if (this->is_t3_sensor_fault != nullptr) this->is_t3_sensor_fault->publish_state((msg[5] & (1 << 2)) != 0);
+        if (this->is_t4_sensor_fault != nullptr) this->is_t4_sensor_fault->publish_state((msg[5] & (1 << 3)) != 0);
+        if (this->is_preheater_fault != nullptr) this->is_preheater_fault->publish_state((msg[5] & (1 << 4)) != 0);
+        if (this->is_supply_fan_fault != nullptr) this->is_supply_fan_fault->publish_state((msg[6] & (1 << 0)) != 0);
+        if (this->is_exhaust_fan_fault != nullptr) this->is_exhaust_fan_fault->publish_state((msg[6] & (1 << 1)) != 0);
+        if (this->is_bypass_fault != nullptr) this->is_bypass_fault->publish_state((msg[6] & (1 << 2)) != 0);
+        break;
+      }
+      case COMFOAIR_GET_DELAYS_RESPONSE: {
+        if (this->delay_bathroom_switch_on != nullptr) this->delay_bathroom_switch_on->publish_state(msg[0]);
+        if (this->delay_bathroom_switch_off != nullptr) this->delay_bathroom_switch_off->publish_state(msg[1]);
+        if (this->delay_boost != nullptr) this->delay_boost->publish_state(msg[2]);
+        if (this->delay_filter_weeks != nullptr) this->delay_filter_weeks->publish_state(msg[3]);
+        break;
+      }
+      case COMFOAIR_GET_ANALOG_INPUTS_RESPONSE: {
+        if (this->analog_input_1 != nullptr) this->analog_input_1->publish_state(msg[0]);
+        if (this->analog_input_2 != nullptr) this->analog_input_2->publish_state(msg[1]);
+        if (this->analog_input_3 != nullptr) this->analog_input_3->publish_state(msg[2]);
+        if (this->analog_input_4 != nullptr) this->analog_input_4->publish_state(msg[3]);
+        break;
+      }
+      case COMFOAIR_GET_EWT_REHEATER_RESPONSE: {
+        if (this->ewt_state != nullptr) this->ewt_state->publish_state(msg[0]);
+        if (this->ewt_temperature_low != nullptr) this->ewt_temperature_low->publish_state((float) msg[1] / 2.0f - 20.0f);
+        if (this->ewt_temperature_high != nullptr) this->ewt_temperature_high->publish_state((float) msg[2] / 2.0f - 20.0f);
+        if (this->reheater_state != nullptr) this->reheater_state->publish_state(msg[3]);
         break;
       }
       case COMFOAIR_GET_TEMPERATURES_RESPONSE: {
@@ -594,7 +672,11 @@ protected:
   }
 
   void get_error_status_() {
-    if (this->is_filter_full != nullptr) {
+    if (this->is_filter_full != nullptr || this->error_code != nullptr ||
+        this->is_supply_fan_fault != nullptr || this->is_exhaust_fan_fault != nullptr ||
+        this->is_t1_sensor_fault != nullptr || this->is_t2_sensor_fault != nullptr ||
+        this->is_t3_sensor_fault != nullptr || this->is_t4_sensor_fault != nullptr ||
+        this->is_bypass_fault != nullptr || this->is_preheater_fault != nullptr) {
       ESP_LOGD(TAG, "getting error status");
       this->write_command_(COMFOAIR_GET_ERROR_STATE_REQUEST, nullptr, 0);
     }
@@ -635,6 +717,30 @@ protected:
   void get_temperatures_() {
     ESP_LOGD(TAG, "getting temperatures");
     this->write_command_(COMFOAIR_GET_TEMPERATURES_REQUEST, nullptr, 0);
+  }
+
+  void get_delays_() {
+    if (this->delay_bathroom_switch_on != nullptr || this->delay_bathroom_switch_off != nullptr ||
+        this->delay_boost != nullptr || this->delay_filter_weeks != nullptr) {
+      ESP_LOGD(TAG, "getting delays");
+      this->write_command_(COMFOAIR_GET_DELAYS_REQUEST, nullptr, 0);
+    }
+  }
+
+  void get_analog_inputs_() {
+    if (this->analog_input_1 != nullptr || this->analog_input_2 != nullptr ||
+        this->analog_input_3 != nullptr || this->analog_input_4 != nullptr) {
+      ESP_LOGD(TAG, "getting analog inputs");
+      this->write_command_(COMFOAIR_GET_ANALOG_INPUTS_REQUEST, nullptr, 0);
+    }
+  }
+
+  void get_ewt_reheater_status_() {
+    if (this->ewt_state != nullptr || this->reheater_state != nullptr ||
+        this->ewt_temperature_low != nullptr || this->ewt_temperature_high != nullptr) {
+      ESP_LOGD(TAG, "getting EWT and reheater status");
+      this->write_command_(COMFOAIR_GET_EWT_REHEATER_REQUEST, nullptr, 0);
+    }
   }
 
   void run_auto_balance_(bool force = false) {
@@ -775,6 +881,26 @@ public:
   sensor::Sensor *filter_hours{nullptr};
   sensor::Sensor *ewt_hours{nullptr};
   sensor::Sensor *error_code{nullptr};
+  binary_sensor::BinarySensor *is_supply_fan_fault{nullptr};
+  binary_sensor::BinarySensor *is_exhaust_fan_fault{nullptr};
+  binary_sensor::BinarySensor *is_t1_sensor_fault{nullptr};
+  binary_sensor::BinarySensor *is_t2_sensor_fault{nullptr};
+  binary_sensor::BinarySensor *is_t3_sensor_fault{nullptr};
+  binary_sensor::BinarySensor *is_t4_sensor_fault{nullptr};
+  binary_sensor::BinarySensor *is_bypass_fault{nullptr};
+  binary_sensor::BinarySensor *is_preheater_fault{nullptr};
+  sensor::Sensor *delay_bathroom_switch_on{nullptr};
+  sensor::Sensor *delay_bathroom_switch_off{nullptr};
+  sensor::Sensor *delay_boost{nullptr};
+  sensor::Sensor *delay_filter_weeks{nullptr};
+  sensor::Sensor *analog_input_1{nullptr};
+  sensor::Sensor *analog_input_2{nullptr};
+  sensor::Sensor *analog_input_3{nullptr};
+  sensor::Sensor *analog_input_4{nullptr};
+  sensor::Sensor *ewt_state{nullptr};
+  sensor::Sensor *reheater_state{nullptr};
+  sensor::Sensor *ewt_temperature_low{nullptr};
+  sensor::Sensor *ewt_temperature_high{nullptr};
 
   void set_fan_supply_percentage(sensor::Sensor *fan_supply_percentage) {this->fan_supply_percentage = fan_supply_percentage;};
   void set_fan_exhaust_percentage(sensor::Sensor *fan_exhaust_percentage) {this->fan_exhaust_percentage =fan_exhaust_percentage; };
@@ -813,6 +939,26 @@ public:
   void set_filter_hours(sensor::Sensor *filter_hours) {this->filter_hours = filter_hours; };
   void set_ewt_hours(sensor::Sensor *ewt_hours) {this->ewt_hours = ewt_hours; };
   void set_error_code(sensor::Sensor *s) { this->error_code = s; };
+  void set_is_supply_fan_fault(binary_sensor::BinarySensor *s) { this->is_supply_fan_fault = s; };
+  void set_is_exhaust_fan_fault(binary_sensor::BinarySensor *s) { this->is_exhaust_fan_fault = s; };
+  void set_is_t1_sensor_fault(binary_sensor::BinarySensor *s) { this->is_t1_sensor_fault = s; };
+  void set_is_t2_sensor_fault(binary_sensor::BinarySensor *s) { this->is_t2_sensor_fault = s; };
+  void set_is_t3_sensor_fault(binary_sensor::BinarySensor *s) { this->is_t3_sensor_fault = s; };
+  void set_is_t4_sensor_fault(binary_sensor::BinarySensor *s) { this->is_t4_sensor_fault = s; };
+  void set_is_bypass_fault(binary_sensor::BinarySensor *s) { this->is_bypass_fault = s; };
+  void set_is_preheater_fault(binary_sensor::BinarySensor *s) { this->is_preheater_fault = s; };
+  void set_delay_bathroom_switch_on(sensor::Sensor *s) { this->delay_bathroom_switch_on = s; };
+  void set_delay_bathroom_switch_off(sensor::Sensor *s) { this->delay_bathroom_switch_off = s; };
+  void set_delay_boost(sensor::Sensor *s) { this->delay_boost = s; };
+  void set_delay_filter_weeks(sensor::Sensor *s) { this->delay_filter_weeks = s; };
+  void set_analog_input_1(sensor::Sensor *s) { this->analog_input_1 = s; };
+  void set_analog_input_2(sensor::Sensor *s) { this->analog_input_2 = s; };
+  void set_analog_input_3(sensor::Sensor *s) { this->analog_input_3 = s; };
+  void set_analog_input_4(sensor::Sensor *s) { this->analog_input_4 = s; };
+  void set_ewt_state(sensor::Sensor *s) { this->ewt_state = s; };
+  void set_reheater_state(sensor::Sensor *s) { this->reheater_state = s; };
+  void set_ewt_temperature_low(sensor::Sensor *s) { this->ewt_temperature_low = s; };
+  void set_ewt_temperature_high(sensor::Sensor *s) { this->ewt_temperature_high = s; };
   switch_::Switch *auto_balance_switch_{nullptr};
   void set_auto_balance_switch(switch_::Switch *sw) { this->auto_balance_switch_ = sw; }
 };

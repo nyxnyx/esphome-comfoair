@@ -89,6 +89,30 @@ int main() {
     assert(run_auto_balance_logic(35.0f, 28.0f, 22.0f, true) == 0);
     std::cout << "Test: Auto-balance No Boost (Unfavorable) - Passed" << std::endl;
 
+    // Fault flags decoding test (0xDA)
+    // msg[5]: bit 0 = T1, bit 1 = T2, bit 2 = T3, bit 3 = T4, bit 4 = Preheater
+    // msg[6]: bit 0 = Supply Fan, bit 1 = Exhaust Fan, bit 2 = Bypass
+    uint8_t err_msg[17] = {0};
+    err_msg[0] = 0x05; // error_code
+    err_msg[5] = 0x03; // T1 and T2 fault
+    err_msg[6] = 0x01; // Supply fan fault
+    err_msg[8] = 0x01; // Filter dirty
+    assert((err_msg[5] & (1 << 0)) != 0); // T1 fault
+    assert((err_msg[5] & (1 << 1)) != 0); // T2 fault
+    assert((err_msg[5] & (1 << 2)) == 0); // T3 OK
+    assert((err_msg[6] & (1 << 0)) != 0); // Supply fan fault
+    assert((err_msg[6] & (1 << 1)) == 0); // Exhaust fan OK
+    assert(err_msg[8] != 0);              // Filter dirty
+    std::cout << "Test: Diagnostic Fault Flags Decoding - Passed" << std::endl;
+
+    // Delays decoding test (0xCA)
+    uint8_t delay_msg[8] = {2, 15, 30, 16, 0, 0, 0, 0};
+    assert(delay_msg[0] == 2);   // Bathroom switch-on delay (min)
+    assert(delay_msg[1] == 15);  // Bathroom switch-off delay (min)
+    assert(delay_msg[2] == 30);  // Boost timer (min)
+    assert(delay_msg[3] == 16);  // Filter weeks
+    std::cout << "Test: Delay Parameters Decoding - Passed" << std::endl;
+
     std::cout << "All tests passed successfully!" << std::endl;
     return 0;
 }

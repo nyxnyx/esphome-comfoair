@@ -86,11 +86,43 @@ Below is a complete list of all supported properties you can add under the `comf
 | `filter_hours` | h | Hours since last filter change |
 | `ewt_hours` | h | Ground heat exchanger runtime |
 
+### Diagnostic & Fault Sensors (0xDA)
+| Key | Type | Description |
+|-----|------|-------------|
+| `error_code` | Sensor | Raw current error code (E-00 to E-99) |
+| `is_supply_fan_fault` | Binary | Supply fan motor failure / tachometer fault |
+| `is_exhaust_fan_fault` | Binary | Exhaust fan motor failure / tachometer fault |
+| `is_t1_sensor_fault` | Binary | Outside air temperature sensor fault (T1) |
+| `is_t2_sensor_fault` | Binary | Supply air temperature sensor fault (T2) |
+| `is_t3_sensor_fault` | Binary | Return air temperature sensor fault (T3) |
+| `is_t4_sensor_fault` | Binary | Exhaust air temperature sensor fault (T4) |
+| `is_bypass_fault` | Binary | Bypass damper motor / mechanism fault |
+| `is_preheater_fault` | Binary | Pre-heater failure |
+
+### Delay Sensors (P10–P19, 0xCA)
+| Key | Type | Description | Unit |
+|-----|------|-------------|------|
+| `delay_bathroom_switch_on` | Sensor | Bathroom switch-on delay (P11) | min |
+| `delay_bathroom_switch_off` | Sensor | Bathroom switch-off overrun delay (P12) | min |
+| `delay_boost` | Sensor | Ventilation boost delay (P17) | min |
+| `delay_filter_weeks` | Sensor | Filter timer interval (P13) | w |
+
+### Analog Inputs & Ground Heat Exchanger (0–10V / EWT)
+| Key | Type | Description | Unit |
+|-----|------|-------------|------|
+| `analog_input_1` | Sensor | Analog 0-10V input 1 (e.g. CO2 / RH sensor) | % |
+| `analog_input_2` | Sensor | Analog 0-10V input 2 | % |
+| `analog_input_3` | Sensor | Analog 0-10V input 3 | % |
+| `analog_input_4` | Sensor | Analog 0-10V input 4 | % |
+| `ewt_state` | Sensor | EWT damper state (0=closed, 1=open) | |
+| `ewt_temperature_low` | Sensor | EWT lower activation temperature threshold | °C |
+| `ewt_temperature_high` | Sensor | EWT upper activation temperature threshold | °C |
+| `reheater_state` | Sensor | Secondary duct reheater state | |
+
 ### Automation & Control
 | Key | Type | Description |
 |-----|------|-------------|
 | `auto_balance` | Switch | **Intelligent Speed Boost**: Automatically adjusts fan speed (0-3) based on thermal efficiency. See details below. |
-| `error_code` | Sensor | Last reported error code for diagnostics. |
 
 ## Feature: Auto Temperature Balance
 
@@ -141,6 +173,38 @@ button:
         - lambda: |-
             // set_ventilation_levels(ex_absent, ex_low, ex_med, ex_high, su_absent, su_low, su_med, su_high, current_speed)
             id(my_comfoair)->set_ventilation_levels(15, 30, 45, 70, 15, 30, 45, 70);
+
+  - platform: template
+    name: "Configure Delays"
+    on_press:
+      then:
+        - lambda: |-
+            // set_delays(bath_on_min, bath_off_min, boost_min, filter_weeks)
+            id(my_comfoair)->set_delays(2, 15, 30, 16);
+
+  - platform: template
+    name: "Force Open Bypass"
+    on_press:
+      then:
+        - lambda: |-
+            // 0=Auto, 1=Force Close, 2=Force Open
+            id(my_comfoair)->set_bypass_mode(2);
+
+  - platform: template
+    name: "Set PC Master Mode"
+    on_press:
+      then:
+        - lambda: |-
+            // 1=PC Master (ESPHome overrides CC-Ease), 0=Normal/Passive
+            id(my_comfoair)->set_rs232_mode(1);
+
+  - platform: template
+    name: "Configure Ground Heat Exchanger (EWT)"
+    on_press:
+      then:
+        - lambda: |-
+            // set_ewt(temp_low, temp_high, reheater_target)
+            id(my_comfoair)->set_ewt(7, 23, 21);
 ```
 
 ## Visualization

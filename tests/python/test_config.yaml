@@ -21,41 +21,121 @@ comfoair:
   id: my_comfoair
   uart_id: uart_bus
   
-  # Cover all sensor types
+  # Complete coverage of all sensor and binary_sensor entities
   fan_speed_supply:
-    name: "Fan Speed"
-  outside_air_temperature:
-    name: "Outside Temp"
+    name: "Fan Speed Supply"
+  fan_speed_exhaust:
+    name: "Fan Speed Exhaust"
   fan_supply_percentage:
-    name: "Fan Power"
+    name: "Fan Supply %"
+  fan_exhaust_percentage:
+    name: "Fan Exhaust %"
   is_bypass_valve_open:
     name: "Bypass Open"
-  fan_hours_supply:
-    name: "Fan Hours"
+  is_preheating:
+    name: "Is Preheating"
+  outside_air_temperature:
+    name: "Outside Temp"
+  supply_air_temperature:
+    name: "Supply Temp"
+  return_air_temperature:
+    name: "Return Temp"
+  exhaust_air_temperature:
+    name: "Exhaust Temp"
+  enthalpy_temperature:
+    name: "Enthalpy Temp"
+  ewt_temperature:
+    name: "EWT Temp"
+  reheating_temperature:
+    name: "Reheating Temp"
+  kitchen_hood_temperature:
+    name: "Kitchen Hood Temp"
   return_air_level:
     name: "Return Level"
-  error_code:
-    name: "Error Code"
+  supply_air_level:
+    name: "Supply Level"
+  is_supply_fan_active:
+    name: "Supply Fan Active"
+  is_filter_full:
+    name: "Filter Full"
+  bypass_factor:
+    name: "Bypass Factor"
+  bypass_step:
+    name: "Bypass Step"
+  bypass_correction:
+    name: "Bypass Correction"
+  is_summer_mode:
+    name: "Summer Mode"
   fan_exhaust_absent:
     name: "Exhaust Absent"
+  fan_exhaust_low:
+    name: "Exhaust Low"
+  fan_exhaust_medium:
+    name: "Exhaust Medium"
+  fan_exhaust_high:
+    name: "Exhaust High"
+  fan_supply_absent:
+    name: "Supply Absent"
+  fan_supply_low:
+    name: "Supply Low"
+  fan_supply_medium:
+    name: "Supply Medium"
   fan_supply_high:
     name: "Supply High"
+  fan_hours_supply:
+    name: "Fan Hours Supply"
+  fan_hours_exhaust:
+    name: "Fan Hours Exhaust"
+  bypass_hours:
+    name: "Bypass Hours"
+  preheater_hours:
+    name: "Preheater Hours"
+  filter_hours:
+    name: "Filter Hours"
+  ewt_hours:
+    name: "EWT Hours"
+  error_code:
+    name: "Error Code"
   is_supply_fan_fault:
     name: "Supply Fan Fault"
+  is_exhaust_fan_fault:
+    name: "Exhaust Fan Fault"
   is_t1_sensor_fault:
     name: "T1 Sensor Fault"
+  is_t2_sensor_fault:
+    name: "T2 Sensor Fault"
+  is_t3_sensor_fault:
+    name: "T3 Sensor Fault"
+  is_t4_sensor_fault:
+    name: "T4 Sensor Fault"
   is_bypass_fault:
     name: "Bypass Fault"
+  is_preheater_fault:
+    name: "Preheater Fault"
   delay_bathroom_switch_on:
     name: "Bathroom Switch-on Delay"
   delay_bathroom_switch_off:
     name: "Bathroom Switch-off Delay"
+  delay_boost:
+    name: "Boost Delay"
+  delay_filter_weeks:
+    name: "Filter Weeks"
   analog_input_1:
     name: "Analog 1 (0-10V)"
+  analog_input_2:
+    name: "Analog 2 (0-10V)"
+  analog_input_3:
+    name: "Analog 3 (0-10V)"
+  analog_input_4:
+    name: "Analog 4 (0-10V)"
   ewt_state:
     name: "EWT State"
+  reheater_state:
+    name: "Reheater State"
   ewt_temperature_low:
     name: "EWT Temp Low"
+  ewt_temperature_high:
+    name: "EWT Temp High"
     
   # Automation
   auto_balance:

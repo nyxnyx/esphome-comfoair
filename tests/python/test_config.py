@@ -12,3 +12,8 @@ def test_esphome_config():
         print("\nESPHome Output:\n", result.stdout)
         print("\nESPHome Error:\n", result.stderr)
     assert result.returncode == 0, f"ESPHome config/compile failed with error: {result.stderr}"
+
+if __name__ == "__main__":
+    test_esphome_config()
+    print("ESPHome 100% config & compile test passed!")
+

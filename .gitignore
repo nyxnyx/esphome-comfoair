@@ -8,3 +8,5 @@
 __pycache__/
 *.pyc
 .esphome/
+tests/cpp/test_protocol
+tests/cpp/*.o

@@ -6,61 +6,52 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/components/climate/climate_traits.h"
+#include "esphome/components/switch/switch.h"
 #include "messages.h"
 
 namespace esphome {
 namespace comfoair {
+class ComfoAirComponent;
+
+class ComfoAirComponent;
+
+class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
+ public:
+  void set_parent(ComfoAirComponent *parent) { parent_ = parent; }
+  void setup() override {
+    bool initial_state = this->get_initial_state().value_or(false);
+    this->publish_state(initial_state);
+  }
+  void write_state(bool state) override;
+ protected:
+  ComfoAirComponent *parent_{nullptr};
+};
+
 class ComfoAirComponent : public climate::Climate, public PollingComponent, public uart::UARTDevice {
+  friend class ComfoAirAutoBalanceSwitch;
 public:
 
   // Poll every 600ms
   ComfoAirComponent() : 
   Climate(), 
   PollingComponent(600),
-  UARTDevice() { 
-    /**fan_supply_air_percentage = new sensor::Sensor("Comfoair Fan Supply Air");
-    fan_exhaust_air_percentage = new sensor::Sensor("Comfoair Fan Exhaust Air");
-    fan_speed_supply = new sensor::Sensor("Comfoair Fan Speed Supply");
-    fan_speed_exhaust = new sensor::Sensor("Comfoair Fan Speed Exhaust");
-    outside_air_temperature = new sensor::Sensor("Comfoair Outside Air");
-    supply_air_temperature = new sensor::Sensor("Comfoair Supply Air");
-    return_air_temperature = new sensor::Sensor("Comfoair Return Air");
-    exhaust_air_temperature = new sensor::Sensor("Comfoair Exhaust Air");
-    enthalpy_temperature = new sensor::Sensor("Comfoair Enthalapy Temp");
-    ewt_temperature = new sensor::Sensor("Comfoair EWT");
-    reheating_temperature = new sensor::Sensor("Comfoair Reheating Temp");
-    kitchen_hood_temperature = new sensor::Sensor("Comfoair Kitchen Hood Air");
-    return_air_level = new sensor::Sensor("Comfoair Return Air Level");
-    supply_air_level = new sensor::Sensor("Comfoair Suply Air Level");
-    bypass_factor = new sensor::Sensor("Comfoair bypass factor");
-    bypass_step = new sensor::Sensor("Comfoair bypass step");
-    bypass_correction = new sensor::Sensor("Comfoair bypass correction");
-    is_bypass_valve_open = new binary_sensor::BinarySensor();
-    is_bypass_valve_open.set_name("Comfoair Bypass Valve");
-    is_preheating = new binary_sensor::BinarySensor();
-    is_preheating->set_name("Comfoair Preheating");
-    is_supply_fan_active = new binary_sensor::BinarySensor();
-    is_supply_fan_active->set_name("Comfoair Supply Fan");
-    is_filter_full = new binary_sensor::BinarySensor();
-    is_filter_full->set_name("Comfoair Filter Full");
-    is_summer_mode = new binary_sensor::BinarySensor();
-    is_summer_mode->set_name("Comfoair Summer Mode");**/
-  }
+  UARTDevice() { }
 
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
-    traits.set_supports_current_temperature(false);
-    traits.set_supported_modes({
-      climate::CLIMATE_MODE_FAN_ONLY
-    });
-    traits.set_supports_two_point_target_temperature(false);
-    traits.set_supported_presets({
-        climate::CLIMATE_PRESET_HOME,
-    }); 
-    traits.set_supports_action(false);
+	traits.add_feature_flags(
+        climate::CLIMATE_MODE_FAN_ONLY | 
+	    climate::CLIMATE_PRESET_HOME |
+		climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
+		climate::CLIMATE_PRESET_HOME
+    );
+	traits.clear_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE |
+		climate::CLIMATE_SUPPORTS_ACTION
+		);
     traits.set_visual_min_temperature(12);
     traits.set_visual_max_temperature(29);
+	traits.set_visual_target_temperature_step(1.0);
     //traits.set_visual_tXComfoAirComponentemperature_step(1);
     traits.set_supported_fan_modes({
       climate::CLIMATE_FAN_FOCUS,
@@ -172,10 +163,16 @@ public:
       case 6:
         get_bypass_control_status_();
         break;
+      case 7:
+        get_operating_hours_();
+        break;
+      case 8:
+        get_preheater_status_();
+        break;
     }
 
     update_counter_++;
-    if (update_counter_ > 6)
+    if (update_counter_ > 8)
       update_counter_ = 0;
   }
 
@@ -199,12 +196,14 @@ public:
         this->data_index_++;
       }
     }
+    this->run_auto_balance_();
   }
 
   float get_setup_priority() const override { return setup_priority::DATA; }
 
   void reset_filter(void) {
     uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {0, 0, 0, 1};
+	  ESP_LOGI(TAG, "Resetting filter counter. Make sure that filter is changed");
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 
@@ -363,11 +362,11 @@ protected:
         memcpy(connector_board_version_, msg, this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
         break;
       case COMFOAIR_GET_FAN_STATUS_RESPONSE: {
-          if (this->fan_supply_air_percentage != nullptr) {
-            this->fan_supply_air_percentage->publish_state(msg[0]);
+          if (this->fan_supply_percentage != nullptr) {
+            this->fan_supply_percentage->publish_state(msg[0]);
           }
-          if (this->fan_exhaust_air_percentage != nullptr) {
-            this->fan_exhaust_air_percentage->publish_state(msg[1]);
+          if (this->fan_exhaust_percentage != nullptr) {
+            this->fan_exhaust_percentage->publish_state(msg[1]);
           }
           if (this->fan_speed_supply != nullptr) {
             this->fan_speed_supply->publish_state(1875000.0f / this->get_uint16_(2));
@@ -498,9 +497,27 @@ protected:
         }
         break;
       }
+      case COMFOAIR_GET_OPERATING_HOURS_RESPONSE: {
+        if (this->fan_hours_supply != nullptr) this->fan_hours_supply->publish_state(this->get_uint16_(0));
+        if (this->fan_hours_exhaust != nullptr) this->fan_hours_exhaust->publish_state(this->get_uint16_(2));
+        if (this->bypass_hours != nullptr) this->bypass_hours->publish_state(this->get_uint16_(4));
+        if (this->preheater_hours != nullptr) this->preheater_hours->publish_state(this->get_uint16_(6));
+        if (this->ewt_hours != nullptr) this->ewt_hours->publish_state(this->get_uint16_(8));
+        if (this->filter_hours != nullptr) this->filter_hours->publish_state(this->get_uint16_(10));
+        break;
+      }
+      case COMFOAIR_GET_PREHEATER_STATUS_RESPONSE: {
+        if (this->is_preheating != nullptr) {
+          this->is_preheating->publish_state(msg[0] != 0);
+        }
+        break;
+      }
       case COMFOAIR_GET_ERROR_STATE_RESPONSE: {
         if (this->is_filter_full != nullptr) {
           this->is_filter_full->publish_state(msg[8] != 0);
+        }
+        if (this->error_code != nullptr) {
+          this->error_code->publish_state(msg[0]); // Just taking the first error byte as code for now
         }
         break;
       }
@@ -508,7 +525,6 @@ protected:
 
         // comfort temperature
         this->target_temperature = (float) msg[0] / 2.0f - 20.0f;
-        this->current_temperature = (float) msg[2] / 2.0f - 20.0f;
         this->publish_state();
 
         // T1 / outside air
@@ -522,6 +538,7 @@ protected:
         // T3 / exhaust air
         if (this->return_air_temperature != nullptr && msg[5] & 0x04) {
           this->return_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
+          this->current_temperature = (float) msg[3] / 2.0f - 20.0f;
         }
         // T4 / continued air
         if (this->exhaust_air_temperature != nullptr && msg[5] & 0x08) {
@@ -546,8 +563,8 @@ protected:
   }
 
   void get_fan_status_() {
-    if (this->fan_supply_air_percentage != nullptr ||
-        this->fan_exhaust_air_percentage != nullptr ||
+    if (this->fan_supply_percentage != nullptr ||
+        this->fan_exhaust_percentage != nullptr ||
         this->fan_speed_supply != nullptr ||
         this->fan_speed_exhaust != nullptr) {
       ESP_LOGD(TAG, "getting fan status");
@@ -607,6 +624,77 @@ protected:
     this->write_command_(COMFOAIR_GET_TEMPERATURES_REQUEST, nullptr, 0);
   }
 
+  void run_auto_balance_(bool force = false) {
+    if (this->auto_balance_switch_ == nullptr || !this->auto_balance_switch_->state) {
+      return;
+    }
+
+    // Only run every 5 minutes unless forced
+    uint32_t now = millis();
+    if (force || now - last_auto_balance_ > 300000) {
+      last_auto_balance_ = now;
+      
+      float supply = this->supply_air_temperature->state;
+      float return_air = this->return_air_temperature->state;
+      float target = this->target_temperature;
+      
+      if (std::isnan(supply) || std::isnan(return_air)) return;
+
+      // Real-time thermal effect: positive = cooling the house, negative = heating the house
+      float thermal_power = return_air - supply;
+      // Thermal demand: positive = we want to cool down, negative = we want to heat up
+      float demand = return_air - target;
+
+      bool is_helping = false;
+      // We consider the system is helping if the thermal power has the same sign as the demand
+      // (e.g. we want to cool (+) and the supply air is cooler than return air (+))
+      if (std::abs(demand) > 0.3f) {
+          if ((demand > 0 && thermal_power > 0.5f) || (demand < 0 && thermal_power < -0.5f)) {
+              is_helping = true;
+          }
+      }
+
+      // Safety: if preheating is active, don't boost fans (avoid wasting energy)
+      if (this->is_preheating != nullptr && this->is_preheating->state && is_helping) {
+          ESP_LOGD(TAG, "Auto balance: System is helping but Pre-heating is ACTIVE. Throttling boost.");
+          is_helping = false; 
+      }
+
+      int new_level = 2; // Default to Stage 1 (Standard)
+      float abs_demand = std::abs(demand);
+
+      if (is_helping) {
+          // Proportional response
+          if (abs_demand > 3.0f)      new_level = 4; // Stage 3 (Boost)
+          else if (abs_demand > 1.2f) new_level = 3; // Stage 2 (High)
+          else                        new_level = 2; // Stage 1 (Standard)
+          
+          ESP_LOGI(TAG, "Auto balance: HELPING (Power: %.1fC). Demand: %.1fC -> Level %d", 
+                   thermal_power, demand, new_level);
+      } else {
+          // System is counter-productive or we are at target
+          if (abs_demand > 1.0f) {
+              new_level = 1; // Stage 0 (Absent) - Minimize unproductive air exchange
+              ESP_LOGI(TAG, "Auto balance: COUNTER-PRODUCTIVE (Power: %.1fC). Reducing to Minimum (Level 1).", thermal_power);
+          } else {
+              new_level = 2; // Stage 1 (Standard) - Normal ventilation near target
+          }
+      }
+      
+      this->set_level_(new_level);
+    }
+  }
+
+  void get_operating_hours_() {
+    ESP_LOGD(TAG, "getting operating hours");
+    this->write_command_(COMFOAIR_GET_OPERATING_HOURS_REQUEST, nullptr, 0);
+  }
+
+  void get_preheater_status_() {
+    ESP_LOGD(TAG, "getting preheater status");
+    this->write_command_(COMFOAIR_GET_PREHEATER_STATUS_REQUEST, nullptr, 0);
+  }
+
   uint8_t get_uint8_t_(uint8_t start_index) const {
     return this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index];
   }
@@ -618,18 +706,19 @@ protected:
   uint8_t data_[30];
   uint8_t data_index_{0};
   int8_t update_counter_{-3};
+  uint32_t last_auto_balance_{0};
 
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
+  std::string name;
+  void set_name(const std::string &name) { this->name = name; }
 
 public: 
-  sensor::Sensor *fan_supply_air_percentage{nullptr};
-  sensor::Sensor *fan_exhaust_air_percentage{nullptr};
+  sensor::Sensor *fan_supply_percentage{nullptr};
+  sensor::Sensor *fan_exhaust_percentage{nullptr};
   sensor::Sensor *fan_speed_supply{nullptr};
   sensor::Sensor *fan_speed_exhaust{nullptr};
-  binary_sensor::BinarySensor *is_bypass_valve_open{nullptr};
-  binary_sensor::BinarySensor *is_preheating{nullptr};
   sensor::Sensor *outside_air_temperature{nullptr};
   sensor::Sensor *supply_air_temperature{nullptr};
   sensor::Sensor *return_air_temperature{nullptr};
@@ -640,11 +729,11 @@ public:
   sensor::Sensor *kitchen_hood_temperature{nullptr};
   sensor::Sensor *return_air_level{nullptr};
   sensor::Sensor *supply_air_level{nullptr};
-  binary_sensor::BinarySensor *is_supply_fan_active{nullptr};
-  binary_sensor::BinarySensor *is_filter_full{nullptr};
   sensor::Sensor *bypass_factor{nullptr};
   sensor::Sensor *bypass_step{nullptr};
   sensor::Sensor *bypass_correction{nullptr};
+  binary_sensor::BinarySensor *is_bypass_valve_open{nullptr};
+  binary_sensor::BinarySensor *is_preheating{nullptr};
   binary_sensor::BinarySensor *is_summer_mode{nullptr};
   sensor::Sensor *fan_exhaust_absent{nullptr};
   sensor::Sensor *fan_exhaust_low{nullptr};
@@ -654,9 +743,18 @@ public:
   sensor::Sensor *fan_supply_low{nullptr};
   sensor::Sensor *fan_supply_medium{nullptr};
   sensor::Sensor *fan_supply_high{nullptr};
+  binary_sensor::BinarySensor *is_supply_fan_active{nullptr};
+  binary_sensor::BinarySensor *is_filter_full{nullptr};
+  sensor::Sensor *fan_hours_supply{nullptr};
+  sensor::Sensor *fan_hours_exhaust{nullptr};
+  sensor::Sensor *bypass_hours{nullptr};
+  sensor::Sensor *preheater_hours{nullptr};
+  sensor::Sensor *filter_hours{nullptr};
+  sensor::Sensor *ewt_hours{nullptr};
+  sensor::Sensor *error_code{nullptr};
 
-  void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
-  void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };
+  void set_fan_supply_percentage(sensor::Sensor *fan_supply_percentage) {this->fan_supply_percentage = fan_supply_percentage;};
+  void set_fan_exhaust_percentage(sensor::Sensor *fan_exhaust_percentage) {this->fan_exhaust_percentage =fan_exhaust_percentage; };
   void set_fan_speed_supply(sensor::Sensor *fan_speed_supply) {this->fan_speed_supply =fan_speed_supply; };
   void set_fan_speed_exhaust(sensor::Sensor *fan_speed_exhaust) {this->fan_speed_exhaust =fan_speed_exhaust; };
   void set_is_bypass_valve_open(binary_sensor::BinarySensor *is_bypass_valve_open) {this->is_bypass_valve_open =is_bypass_valve_open; };
@@ -685,7 +783,24 @@ public:
   void set_fan_supply_low(sensor::Sensor *s) { this->fan_supply_low = s; };
   void set_fan_supply_medium(sensor::Sensor *s) { this->fan_supply_medium = s; };
   void set_fan_supply_high(sensor::Sensor *s) { this->fan_supply_high = s; };
+  void set_fan_hours_supply(sensor::Sensor *fan_hours_supply) {this->fan_hours_supply = fan_hours_supply; };
+  void set_fan_hours_exhaust(sensor::Sensor *fan_hours_exhaust) {this->fan_hours_exhaust = fan_hours_exhaust; };
+  void set_bypass_hours(sensor::Sensor *bypass_hours) {this->bypass_hours = bypass_hours; };
+  void set_preheater_hours(sensor::Sensor *preheater_hours) {this->preheater_hours = preheater_hours; };
+  void set_filter_hours(sensor::Sensor *filter_hours) {this->filter_hours = filter_hours; };
+  void set_ewt_hours(sensor::Sensor *ewt_hours) {this->ewt_hours = ewt_hours; };
+  void set_error_code(sensor::Sensor *error_code) {this->error_code = error_code; };
+  switch_::Switch *auto_balance_switch_{nullptr};
+  void set_auto_balance_switch(switch_::Switch *sw) { this->auto_balance_switch_ = sw; }
 };
+
+inline void ComfoAirAutoBalanceSwitch::write_state(bool state) {
+  ESP_LOGD("comfoair.switch", "Auto Balance switch turned %s", state ? "ON" : "OFF");
+  this->publish_state(state);
+  if (this->parent_ != nullptr) {
+      this->parent_->run_auto_balance_(true);
+  }
+}
 
 }  // namespace comfoair
 }  // namespace esphome

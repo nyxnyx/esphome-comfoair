@@ -6,17 +6,18 @@ from esphome.components import uart
 from esphome.components import climate
 from esphome.components import sensor
 from esphome.components import binary_sensor
+from esphome.components import switch
 from esphome import pins
 comfoair_ns = cg.esphome_ns.namespace('comfoair')
-ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', cg.Component)
+ComfoAirComponent = comfoair_ns.class_('ComfoAirComponent', climate.Climate, cg.PollingComponent, uart.UARTDevice)
+ComfoAirAutoBalanceSwitch = comfoair_ns.class_('ComfoAirAutoBalanceSwitch', switch.Switch, cg.Component)
 
 DEPENDENCIES=['uart']
-AUTO_LOAD = ['sensor', 'climate', 'binary_sensor']
-REQUIRED_KEY_NAME = "name"
+AUTO_LOAD = ['sensor', 'climate', 'binary_sensor', 'switch']
 CONF_HUB_ID = 'comfoair'
 
-CONF_FAN_SUPPLY_AIR_PERCENTAGE = "fan_supply_air_percentage"
-CONF_FAN_EXHAUST_AIR_PERCENTAGE = "fan_exhaust_air_percentage"
+CONF_FAN_SUPPLY_PERCENTAGE = "fan_supply_percentage"
+CONF_FAN_EXHAUST_PERCENTAGE = "fan_exhaust_percentage"
 CONF_FAN_SPEED_SUPPLY = "fan_speed_supply"
 CONF_FAN_SPEED_EXHAUST = "fan_speed_exhaust"
 CONF_IS_BYPASS_VALVE_OPEN = "is_bypass_valve_open"
@@ -45,10 +46,18 @@ CONF_FAN_SUPPLY_ABSENT = "fan_supply_absent"
 CONF_FAN_SUPPLY_LOW = "fan_supply_low"
 CONF_FAN_SUPPLY_MEDIUM = "fan_supply_medium"
 CONF_FAN_SUPPLY_HIGH = "fan_supply_high"
+CONF_FAN_HOURS_SUPPLY = "fan_hours_supply"
+CONF_FAN_HOURS_EXHAUST = "fan_hours_exhaust"
+CONF_BYPASS_HOURS = "bypass_hours"
+CONF_PREHEATER_HOURS = "preheater_hours"
+CONF_FILTER_HOURS = "filter_hours"
+CONF_EWT_HOURS = "ewt_hours"
+CONF_ERROR_CODE = "error_code"
+CONF_AUTO_BALANCE = "auto_balance"
 
 helper_comfoair_list = [
-    CONF_FAN_SUPPLY_AIR_PERCENTAGE,
-    CONF_FAN_EXHAUST_AIR_PERCENTAGE,
+    CONF_FAN_SUPPLY_PERCENTAGE,
+    CONF_FAN_EXHAUST_PERCENTAGE,
     CONF_FAN_SPEED_SUPPLY,
     CONF_FAN_SPEED_EXHAUST,
     CONF_IS_BYPASS_VALVE_OPEN,
@@ -77,28 +86,32 @@ helper_comfoair_list = [
     CONF_FAN_SUPPLY_LOW,
     CONF_FAN_SUPPLY_MEDIUM,
     CONF_FAN_SUPPLY_HIGH,
+    CONF_FAN_HOURS_SUPPLY,
+    CONF_FAN_HOURS_EXHAUST,
+    CONF_BYPASS_HOURS,
+    CONF_PREHEATER_HOURS,
+    CONF_FILTER_HOURS,
+    CONF_EWT_HOURS,
+    CONF_ERROR_CODE,
 ]
 
-comfoair_sensors_schemas = cv.Schema({
-cv.Optional(CONF_FAN_SUPPLY_AIR_PERCENTAGE): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
+comfoair_sensors_schemas = cv.Schema(
+    {
+cv.Optional(CONF_FAN_SUPPLY_PERCENTAGE): sensor.sensor_schema(
     unit_of_measurement=UNIT_PERCENT,
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
-cv.Optional(CONF_FAN_EXHAUST_AIR_PERCENTAGE): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
+cv.Optional(CONF_FAN_EXHAUST_PERCENTAGE): sensor.sensor_schema(
     unit_of_measurement=UNIT_PERCENT,
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_FAN_SPEED_SUPPLY): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
-    unit_of_measurement=UNIT_PERCENT,
-    accuracy_decimals=1,
+    unit_of_measurement="rpm",
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_FAN_SPEED_EXHAUST): sensor.sensor_schema(
-    device_class=DEVICE_CLASS_SPEED,
-    unit_of_measurement=UNIT_PERCENT,
-    accuracy_decimals=1,
+    unit_of_measurement="rpm",
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
 cv.Optional(CONF_OUTSIDE_AIR_TEMPERATURE): sensor.sensor_schema(
     device_class=DEVICE_CLASS_TEMPERATURE,
@@ -210,36 +223,70 @@ cv.Optional(CONF_FAN_SUPPLY_HIGH): sensor.sensor_schema(
     unit_of_measurement=UNIT_PERCENT,
     accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_HOURS_SUPPLY): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_HOURS_EXHAUST): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_BYPASS_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_PREHEATER_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FILTER_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_EWT_HOURS): sensor.sensor_schema(
+    unit_of_measurement="h",
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_ERROR_CODE): sensor.sensor_schema(
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
 })
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema( {
         cv.GenerateID(CONF_ID): cv.declare_id(ComfoAirComponent),
-        cv.Required(REQUIRED_KEY_NAME): cv.string,
     })
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(comfoair_sensors_schemas)
     .extend(cv.COMPONENT_SCHEMA)
+    .extend(climate.climate_schema(ComfoAirComponent))
+    .extend({
+        cv.Optional(CONF_AUTO_BALANCE): switch.switch_schema(ComfoAirAutoBalanceSwitch),
+    })
 )
 
 
-def to_code(config):
+async def to_code(config):
     """Generates code"""
-    var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield uart.register_uart_device(var, config)
-    cg.add(var.set_name(config[REQUIRED_KEY_NAME]))
-    paren = yield cg.get_variable(config[CONF_UART_ID])
+    # var = cg.new_Pvariable(config[CONF_ID])
+    var = await climate.new_climate(config)
+    await cg.register_component(var, config)
+    await uart.register_uart_device(var, config)
+    paren = await cg.get_variable(config[CONF_UART_ID])
     cg.add(var.set_uart_component(paren))
     for k in helper_comfoair_list:
-        
-        #conf = config[CONF_VAC_U]
-        #sens = yield sensor.new_sensor(conf)
-        #cg.add(var.set_vac_u_sensor(sens))
         if k in config:
+            sens = None
             if 'is_' in k:
-                sens = yield binary_sensor.new_binary_sensor(config[k])
+                sens = await binary_sensor.new_binary_sensor(config[k])
             else:
-                sens = yield sensor.new_sensor(config[k])
-            eval('cg.add(var.set_'+k+'(sens))')
-    #yield climate.register_climate(var, config)
+                sens = await sensor.new_sensor(config[k])
+            func = getattr(var, 'set_'+k)
+            cg.add(func(sens))
+    
+    if CONF_AUTO_BALANCE in config:
+        sw = cg.new_Pvariable(config[CONF_AUTO_BALANCE][CONF_ID])
+        await cg.register_component(sw, config[CONF_AUTO_BALANCE])
+        await switch.register_switch(sw, config[CONF_AUTO_BALANCE])
+        cg.add(sw.set_parent(var))
+        cg.add(var.set_auto_balance_switch(sw))

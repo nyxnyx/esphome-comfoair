@@ -208,6 +208,31 @@ public:
     this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
 	}
 
+  void set_ventilation_levels(uint8_t ex_absent, uint8_t ex_low, uint8_t ex_medium, uint8_t ex_high,
+                              uint8_t su_absent, uint8_t su_low, uint8_t su_medium, uint8_t su_high,
+                              uint8_t current_speed = 0) {
+    if (current_speed == 0) {
+      current_speed = 2; // Default low (Bieg 1)
+      if (this->fan_mode.has_value()) {
+        auto fm = this->fan_mode.value();
+        if (fm == climate::CLIMATE_FAN_OFF) current_speed = 1;
+        else if (fm == climate::CLIMATE_FAN_LOW) current_speed = 2;
+        else if (fm == climate::CLIMATE_FAN_MEDIUM) current_speed = 3;
+        else if (fm == climate::CLIMATE_FAN_HIGH) current_speed = 4;
+      }
+    }
+    uint8_t payload[COMFOAIR_SET_VENTILATION_LEVEL_LENGTH] = {
+      ex_absent, ex_low, ex_medium,
+      su_absent, su_low, su_medium,
+      ex_high, su_high,
+      current_speed
+    };
+    ESP_LOGI(TAG, "Setting ventilation levels: Ex=[%u,%u,%u,%u], Su=[%u,%u,%u,%u], Spd=%u",
+             ex_absent, ex_low, ex_medium, ex_high,
+             su_absent, su_low, su_medium, su_high, current_speed);
+    this->write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, payload, sizeof(payload));
+  }
+
   void set_name(const char* value) {}
   void set_uart_component(uart::UARTComponent *parent) {this->set_uart_parent(parent);}
 
@@ -415,6 +440,32 @@ protected:
           this->supply_air_level->publish_state(msg[7]);
         }
 
+        // Programmed stage percentages (Absent, Low, Medium, High)
+        if (this->fan_exhaust_absent != nullptr) {
+          this->fan_exhaust_absent->publish_state(msg[0]);
+        }
+        if (this->fan_exhaust_low != nullptr) {
+          this->fan_exhaust_low->publish_state(msg[1]);
+        }
+        if (this->fan_exhaust_medium != nullptr) {
+          this->fan_exhaust_medium->publish_state(msg[2]);
+        }
+        if (this->fan_supply_absent != nullptr) {
+          this->fan_supply_absent->publish_state(msg[3]);
+        }
+        if (this->fan_supply_low != nullptr) {
+          this->fan_supply_low->publish_state(msg[4]);
+        }
+        if (this->fan_supply_medium != nullptr) {
+          this->fan_supply_medium->publish_state(msg[5]);
+        }
+        if (this->fan_exhaust_high != nullptr) {
+          this->fan_exhaust_high->publish_state(msg[10]);
+        }
+        if (this->fan_supply_high != nullptr) {
+          this->fan_supply_high->publish_state(msg[11]);
+        }
+
         // Fan Speed
         switch(msg[8]) {
           case 0x00:
@@ -595,6 +646,14 @@ public:
   sensor::Sensor *bypass_step{nullptr};
   sensor::Sensor *bypass_correction{nullptr};
   binary_sensor::BinarySensor *is_summer_mode{nullptr};
+  sensor::Sensor *fan_exhaust_absent{nullptr};
+  sensor::Sensor *fan_exhaust_low{nullptr};
+  sensor::Sensor *fan_exhaust_medium{nullptr};
+  sensor::Sensor *fan_exhaust_high{nullptr};
+  sensor::Sensor *fan_supply_absent{nullptr};
+  sensor::Sensor *fan_supply_low{nullptr};
+  sensor::Sensor *fan_supply_medium{nullptr};
+  sensor::Sensor *fan_supply_high{nullptr};
 
   void set_fan_supply_air_percentage(sensor::Sensor *fan_supply_air_percentage) {this->fan_supply_air_percentage = fan_supply_air_percentage;};
   void set_fan_exhaust_air_percentage(sensor::Sensor *fan_exhaust_air_percentage) {this->fan_exhaust_air_percentage =fan_exhaust_air_percentage; };
@@ -618,6 +677,14 @@ public:
   void set_bypass_step(sensor::Sensor *bypass_step) {this->bypass_step = bypass_step; };
   void set_bypass_correction(sensor::Sensor *bypass_correction) {this->bypass_correction = bypass_correction; };
   void set_is_summer_mode(binary_sensor::BinarySensor *is_summer_mode) {this->is_summer_mode = is_summer_mode; };
+  void set_fan_exhaust_absent(sensor::Sensor *s) { this->fan_exhaust_absent = s; };
+  void set_fan_exhaust_low(sensor::Sensor *s) { this->fan_exhaust_low = s; };
+  void set_fan_exhaust_medium(sensor::Sensor *s) { this->fan_exhaust_medium = s; };
+  void set_fan_exhaust_high(sensor::Sensor *s) { this->fan_exhaust_high = s; };
+  void set_fan_supply_absent(sensor::Sensor *s) { this->fan_supply_absent = s; };
+  void set_fan_supply_low(sensor::Sensor *s) { this->fan_supply_low = s; };
+  void set_fan_supply_medium(sensor::Sensor *s) { this->fan_supply_medium = s; };
+  void set_fan_supply_high(sensor::Sensor *s) { this->fan_supply_high = s; };
 };
 
 }  // namespace comfoair

@@ -37,6 +37,14 @@ CONF_BYPASS_FACTOR = "bypass_factor"
 CONF_BYPASS_STEP = "bypass_step"
 CONF_BYPASS_CORRECTION = "bypass_correction"
 CONF_IS_SUMMER_MODE = "is_summer_mode"
+CONF_FAN_EXHAUST_ABSENT = "fan_exhaust_absent"
+CONF_FAN_EXHAUST_LOW = "fan_exhaust_low"
+CONF_FAN_EXHAUST_MEDIUM = "fan_exhaust_medium"
+CONF_FAN_EXHAUST_HIGH = "fan_exhaust_high"
+CONF_FAN_SUPPLY_ABSENT = "fan_supply_absent"
+CONF_FAN_SUPPLY_LOW = "fan_supply_low"
+CONF_FAN_SUPPLY_MEDIUM = "fan_supply_medium"
+CONF_FAN_SUPPLY_HIGH = "fan_supply_high"
 
 helper_comfoair_list = [
     CONF_FAN_SUPPLY_AIR_PERCENTAGE,
@@ -61,6 +69,14 @@ helper_comfoair_list = [
     CONF_BYPASS_STEP,
     CONF_BYPASS_CORRECTION,
     CONF_IS_SUMMER_MODE,
+    CONF_FAN_EXHAUST_ABSENT,
+    CONF_FAN_EXHAUST_LOW,
+    CONF_FAN_EXHAUST_MEDIUM,
+    CONF_FAN_EXHAUST_HIGH,
+    CONF_FAN_SUPPLY_ABSENT,
+    CONF_FAN_SUPPLY_LOW,
+    CONF_FAN_SUPPLY_MEDIUM,
+    CONF_FAN_SUPPLY_HIGH,
 ]
 
 comfoair_sensors_schemas = cv.Schema({
@@ -154,6 +170,46 @@ cv.Optional(CONF_IS_PREHEATING): binary_sensor.binary_sensor_schema(device_class
 cv.Optional(CONF_IS_SUMMER_MODE): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
 cv.Optional(CONF_IS_SUPPLY_FAN_ACTIVE): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
 cv.Optional(CONF_IS_FILTER_FULL): binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_EMPTY).extend(),
+cv.Optional(CONF_FAN_EXHAUST_ABSENT): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_EXHAUST_LOW): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_EXHAUST_MEDIUM): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_EXHAUST_HIGH): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_SUPPLY_ABSENT): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_SUPPLY_LOW): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_SUPPLY_MEDIUM): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
+cv.Optional(CONF_FAN_SUPPLY_HIGH): sensor.sensor_schema(
+    device_class=DEVICE_CLASS_SPEED,
+    unit_of_measurement=UNIT_PERCENT,
+    accuracy_decimals=0,
+    state_class=STATE_CLASS_MEASUREMENT).extend(),
 })
 
 CONFIG_SCHEMA = cv.All(

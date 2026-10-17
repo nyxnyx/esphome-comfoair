@@ -1,6 +1,7 @@
 esphome:
   name: test_comfoair
-  platform: ESP8266
+
+esp8266:
   board: esp01_1m
 
 external_components:
@@ -35,6 +36,10 @@ comfoair:
     name: "Return Level"
   error_code:
     name: "Error Code"
+  fan_exhaust_absent:
+    name: "Exhaust Absent"
+  fan_supply_high:
+    name: "Supply High"
     
   # Automation
   auto_balance:
@@ -60,3 +65,9 @@ button:
       then:
         - lambda: |-
             id(my_comfoair)->reset_filter();
+  - platform: template
+    name: "Apply Ventilation Levels"
+    on_press:
+      then:
+        - lambda: |-
+            id(my_comfoair)->set_ventilation_levels(15, 30, 45, 70, 15, 30, 45, 70);

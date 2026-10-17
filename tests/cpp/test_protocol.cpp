@@ -46,6 +46,10 @@ int run_auto_balance_logic(float outside, float return_air, float target, bool b
     return 0; // AUTO
 }
 
+uint32_t decode_uint24(const uint8_t *data) {
+    return (uint32_t(data[0]) << 16) | (uint32_t(data[1]) << 8) | uint32_t(data[2]);
+}
+
 } // namespace comfoair
 } // namespace esphome
 
@@ -57,6 +61,15 @@ int main() {
     // Checksum tests
     assert(calculate_command_checksum(0x67, 0, nullptr) == 0x14);
     assert(calculate_command_checksum(0x99, 1, (const uint8_t[]){0x02}) == 0x49);
+
+    // 24-bit Operating Hours Big Endian test
+    // E.g. [0x00, 0x1A, 0x2B] = 6699 hours
+    uint8_t sample_hours[3] = {0x00, 0x1A, 0x2B};
+    assert(decode_uint24(sample_hours) == 6699);
+    // Values exceeding 16-bit (e.g. 70000 = 0x011170)
+    uint8_t high_hours[3] = {0x01, 0x11, 0x70};
+    assert(decode_uint24(high_hours) == 70000);
+    std::cout << "Test: 24-bit Operating Hours Decoding - Passed" << std::endl;
 
     // Auto-balance logic tests (Fan Speed Management)
     

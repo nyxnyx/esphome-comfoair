@@ -4,7 +4,7 @@ import os
 def test_esphome_config():
     # Run a dry-run compile to trigger full code generation (to_code)
     result = subprocess.run(
-        ["esphome", "compile", "--no-binary", "tests/python/test_config.yaml"], 
+        ["esphome", "compile", "tests/python/test_config.yaml"], 
         capture_output=True, 
         text=True
     )

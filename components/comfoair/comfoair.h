@@ -1,8 +1,9 @@
 #pragma once
 
-#include "esphome.h"
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/components/climate/climate_traits.h"
@@ -11,8 +12,6 @@
 
 namespace esphome {
 namespace comfoair {
-class ComfoAirComponent;
-
 class ComfoAirComponent;
 
 class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
@@ -40,19 +39,11 @@ public:
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
     auto traits = climate::ClimateTraits();
-	traits.add_feature_flags(
-        climate::CLIMATE_MODE_FAN_ONLY | 
-	    climate::CLIMATE_PRESET_HOME |
-		climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
-		climate::CLIMATE_PRESET_HOME
-    );
-	traits.clear_feature_flags(climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE |
-		climate::CLIMATE_SUPPORTS_ACTION
-		);
+    traits.set_supported_modes({climate::CLIMATE_MODE_FAN_ONLY, climate::CLIMATE_MODE_OFF});
+    traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
     traits.set_visual_min_temperature(12);
     traits.set_visual_max_temperature(29);
-	traits.set_visual_target_temperature_step(1.0);
-    //traits.set_visual_tXComfoAirComponentemperature_step(1);
+    traits.set_visual_target_temperature_step(1.0);
     traits.set_supported_fan_modes({
       climate::CLIMATE_FAN_FOCUS,
       climate::CLIMATE_FAN_AUTO,
@@ -178,6 +169,10 @@ public:
 
   void loop() override {
     while (this->available() != 0) {
+      if (this->data_index_ >= sizeof(this->data_)) {
+        ESP_LOGW(TAG, "ComfoAir RX buffer overflow, resetting index");
+        this->data_index_ = 0;
+      }
       this->read_byte(&this->data_[this->data_index_]);
       auto check = this->check_byte_();
       if (!check.has_value()) {
@@ -263,22 +258,33 @@ protected:
     }
   }
 
+  void write_escaped_byte_(uint8_t byte) {
+    this->write_byte(byte);
+    if (byte == COMFOAIR_MSG_PREFIX) {
+      this->write_byte(COMFOAIR_MSG_PREFIX);
+    }
+  }
+
   void write_command_(const uint8_t command, const uint8_t *command_data, uint8_t command_data_length) {
     this->write_byte(COMFOAIR_MSG_PREFIX);
     this->write_byte(COMFOAIR_MSG_HEAD);
-    this->write_byte(0x00);
-    this->write_byte(command);
-    this->write_byte(command_data_length);
+    this->write_escaped_byte_(0x00);
+    this->write_escaped_byte_(command);
+    this->write_escaped_byte_(command_data_length);
     if (command_data_length > 0) {
-      this->write_array(command_data, command_data_length);
-      this->write_byte((command + command_data_length + comfoair_checksum_(command_data, command_data_length)) & 0xff);
+      for (uint8_t i = 0; i < command_data_length; i++) {
+        this->write_escaped_byte_(command_data[i]);
+      }
+      uint8_t checksum = (command + command_data_length + comfoair_checksum_(command_data, command_data_length)) & 0xff;
+      this->write_escaped_byte_(checksum);
     } else {
-      this->write_byte(comfoair_checksum_(&command, 1));
+      uint8_t checksum = comfoair_checksum_(&command, 1);
+      this->write_escaped_byte_(checksum);
     }
     this->write_byte(COMFOAIR_MSG_PREFIX);
     this->write_byte(COMFOAIR_MSG_TAIL);
     this->flush();
-}
+  }
 
   uint8_t comfoair_checksum_(const uint8_t *command_data, uint8_t length) const {
     uint8_t sum = 0;
@@ -352,15 +358,21 @@ protected:
     uint8_t *msg = &this->data_[COMFOAIR_MSG_HEAD_LENGTH];
 
     switch (this->data_[COMFOAIR_MSG_IDENTIFIER_IDX]) {
-      case COMFOAIR_GET_BOOTLOADER_VERSION_RESPONSE:
-        memcpy(bootloader_version_, msg, this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+      case COMFOAIR_GET_BOOTLOADER_VERSION_RESPONSE: {
+        size_t len = std::min<size_t>(sizeof(this->bootloader_version_), this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+        memcpy(this->bootloader_version_, msg, len);
         break;
-      case COMFOAIR_GET_FIRMWARE_VERSION_RESPONSE:
-        memcpy(firmware_version_, msg, this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+      }
+      case COMFOAIR_GET_FIRMWARE_VERSION_RESPONSE: {
+        size_t len = std::min<size_t>(sizeof(this->firmware_version_), this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+        memcpy(this->firmware_version_, msg, len);
         break;
-      case COMFOAIR_GET_BOARD_VERSION_RESPONSE:
-        memcpy(connector_board_version_, msg, this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+      }
+      case COMFOAIR_GET_BOARD_VERSION_RESPONSE: {
+        size_t len = std::min<size_t>(sizeof(this->connector_board_version_), this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
+        memcpy(this->connector_board_version_, msg, len);
         break;
+      }
       case COMFOAIR_GET_FAN_STATUS_RESPONSE: {
           if (this->fan_supply_percentage != nullptr) {
             this->fan_supply_percentage->publish_state(msg[0]);
@@ -498,12 +510,13 @@ protected:
         break;
       }
       case COMFOAIR_GET_OPERATING_HOURS_RESPONSE: {
-        if (this->fan_hours_supply != nullptr) this->fan_hours_supply->publish_state(this->get_uint16_(0));
-        if (this->fan_hours_exhaust != nullptr) this->fan_hours_exhaust->publish_state(this->get_uint16_(2));
-        if (this->bypass_hours != nullptr) this->bypass_hours->publish_state(this->get_uint16_(4));
-        if (this->preheater_hours != nullptr) this->preheater_hours->publish_state(this->get_uint16_(6));
-        if (this->ewt_hours != nullptr) this->ewt_hours->publish_state(this->get_uint16_(8));
-        if (this->filter_hours != nullptr) this->filter_hours->publish_state(this->get_uint16_(10));
+        // Operating hours are 3-byte (24-bit) Big Endian values in message payload
+        if (this->fan_hours_supply != nullptr) this->fan_hours_supply->publish_state(this->get_uint24_(0));
+        if (this->fan_hours_exhaust != nullptr) this->fan_hours_exhaust->publish_state(this->get_uint24_(3));
+        if (this->bypass_hours != nullptr) this->bypass_hours->publish_state(this->get_uint24_(6));
+        if (this->preheater_hours != nullptr) this->preheater_hours->publish_state(this->get_uint24_(9));
+        if (this->filter_hours != nullptr) this->filter_hours->publish_state(this->get_uint24_(12));
+        if (this->ewt_hours != nullptr) this->ewt_hours->publish_state(this->get_uint24_(15));
         break;
       }
       case COMFOAIR_GET_PREHEATER_STATUS_RESPONSE: {
@@ -628,6 +641,9 @@ protected:
     if (this->auto_balance_switch_ == nullptr || !this->auto_balance_switch_->state) {
       return;
     }
+    if (this->supply_air_temperature == nullptr || this->return_air_temperature == nullptr) {
+      return;
+    }
 
     // Only run every 5 minutes unless forced
     uint32_t now = millis();
@@ -638,7 +654,7 @@ protected:
       float return_air = this->return_air_temperature->state;
       float target = this->target_temperature;
       
-      if (std::isnan(supply) || std::isnan(return_air)) return;
+      if (std::isnan(supply) || std::isnan(return_air) || std::isnan(target)) return;
 
       // Real-time thermal effect: positive = cooling the house, negative = heating the house
       float thermal_power = return_air - supply;
@@ -699,11 +715,18 @@ protected:
     return this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index];
   }
 
-  uint16_t get_uint16_(uint8_t start_index) const {
-    return (uint16_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index + 1] | this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index] << 8));
+  uint32_t get_uint24_(uint8_t start_index) const {
+    return (uint32_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index]) << 16) |
+           (uint32_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index + 1]) << 8) |
+           uint32_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index + 2]);
   }
 
-  uint8_t data_[30];
+  uint16_t get_uint16_(uint8_t start_index) const {
+    return (uint16_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index]) << 8) |
+           uint16_t(this->data_[COMFOAIR_MSG_HEAD_LENGTH + start_index + 1]);
+  }
+
+  uint8_t data_[64]{0};
   uint8_t data_index_{0};
   int8_t update_counter_{-3};
   uint32_t last_auto_balance_{0};
@@ -789,7 +812,7 @@ public:
   void set_preheater_hours(sensor::Sensor *preheater_hours) {this->preheater_hours = preheater_hours; };
   void set_filter_hours(sensor::Sensor *filter_hours) {this->filter_hours = filter_hours; };
   void set_ewt_hours(sensor::Sensor *ewt_hours) {this->ewt_hours = ewt_hours; };
-  void set_error_code(sensor::Sensor *error_code) {this->error_code = error_code; };
+  void set_error_code(sensor::Sensor *s) { this->error_code = s; };
   switch_::Switch *auto_balance_switch_{nullptr};
   void set_auto_balance_switch(switch_::Switch *sw) { this->auto_balance_switch_ = sw; }
 };

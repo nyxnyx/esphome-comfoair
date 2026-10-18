@@ -290,15 +290,18 @@ public:
   }
 
   void restore_hardware_configuration(uint8_t type = 0xFF, uint8_t size = 0xFF, uint8_t options = 0xFF, uint8_t preheater = 0xFF, uint8_t bypass = 0xFF) {
-    // If not explicitly provided, take values from RAM cache (or safe defaults if uninitialized)
-    uint8_t t = (type != 0xFF) ? type : (this->hw_config_cached_ ? this->cached_type_ : 1);
-    uint8_t s = (size != 0xFF) ? size : (this->hw_config_cached_ ? this->cached_size_ : 1);
-    uint8_t o = (options != 0xFF) ? options : (this->hw_config_cached_ ? this->cached_options_ : 0);
-    uint8_t p = (preheater != 0xFF) ? preheater : (this->hw_config_cached_ ? this->cached_preheater_ : 0);
-    uint8_t b = (bypass != 0xFF) ? bypass : (this->hw_config_cached_ ? this->cached_bypass_ : 1);
+    if (!this->hw_config_cached_ && type == 0xFF) {
+      ESP_LOGW(TAG, "Cannot restore hardware configuration: no cached hardware parameters from central unit yet.");
+      return;
+    }
+    uint8_t t = (type != 0xFF) ? type : this->cached_type_;
+    uint8_t s = (size != 0xFF) ? size : this->cached_size_;
+    uint8_t o = (options != 0xFF) ? options : this->cached_options_;
+    uint8_t p = (preheater != 0xFF) ? preheater : this->cached_preheater_;
+    uint8_t b = (bypass != 0xFF) ? bypass : this->cached_bypass_;
 
     uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {p, b, t, s, o, 0, 0, 0};
-    ESP_LOGI(TAG, "Restoring ComfoAir Hardware Config from RAM cache (0xD7: Preheater=%u, Bypass=%u, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u)...", p, b, t, s, o);
+    ESP_LOGI(TAG, "Writing ComfoAir Hardware Config from cache (0xD7: Preheater=%u, Bypass=%u, Typ=%u, Size=%u, Options=%u)...", p, b, t, s, o);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, payload, sizeof(payload));
 
     this->cached_type_ = t;
@@ -343,7 +346,11 @@ public:
   }
 
   void full_factory_reset_and_restore_hardware() {
-    ESP_LOGI(TAG, "=== WYKONUJE PELNY RESET FABRYCZNY I PRZYWRACANIE KONFIGURACJI Z PAMIECI RAM ===");
+    if (!this->hw_config_cached_) {
+      ESP_LOGW(TAG, "Cannot reset and restore: hardware configuration not yet cached from central unit.");
+      return;
+    }
+    ESP_LOGI(TAG, "=== WYKONUJE PELNY RESET FABRYCZNY I PRZYWRACANIE ZACHOWANEJ KONFIGURACJI Z CACHE ===");
     // 1. Reset parametrow EEPROM do fabrycznych (bledy=1, ustawienia=1, autotest=0, filtr=1)
     uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {1, 1, 0, 1};
     ESP_LOGI(TAG, "1. Resetowanie parametrow do fabrycznych (0xDB [1,1,0,1])...");
@@ -353,15 +360,13 @@ public:
     ESP_LOGI(TAG, "2. Wyjscie z trybu testowego (0x19)...");
     this->write_command_(COMFOAIR_SET_TEST_MODE_END_REQUEST, nullptr, 0);
 
-    // 3. Zapis wlasciwej konfiguracji sprzetowej z RAM cache
-    uint8_t t = this->hw_config_cached_ ? this->cached_type_ : 1;
-    uint8_t s = this->hw_config_cached_ ? this->cached_size_ : 1;
-    uint8_t o = this->hw_config_cached_ ? this->cached_options_ : 0;
-    uint8_t p = this->hw_config_cached_ ? this->cached_preheater_ : 0;
-    uint8_t b = this->hw_config_cached_ ? this->cached_bypass_ : 1;
-
-    uint8_t hw_payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {p, b, t, s, o, 0, 0, 0};
-    ESP_LOGI(TAG, "3. Zapis konfiguracji sprzetowej z RAM (0xD7: Preheater=%u, Bypass=%u, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u)...", p, b, t, s, o);
+    // 3. Zapis konfiguracji sprzetowej dokladnie z cache
+    uint8_t hw_payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {
+      this->cached_preheater_, this->cached_bypass_, this->cached_type_,
+      this->cached_size_, this->cached_options_, 0, 0, 0
+    };
+    ESP_LOGI(TAG, "3. Zapis konfiguracji sprzetowej z cache (0xD7: Preheater=%u, Bypass=%u, Typ=%u, Size=%u, Options=%u)...",
+             this->cached_preheater_, this->cached_bypass_, this->cached_type_, this->cached_size_, this->cached_options_);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, hw_payload, sizeof(hw_payload));
 
     // 4. Ustawienie trybu RS232 na 0 (Normalny / autonomiczny - przelacznik biegow Kincony)

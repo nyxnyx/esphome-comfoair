@@ -124,14 +124,17 @@ public:
 
   void update()  {
     switch(update_counter_) {
-      case -3:
+      case -4:
         this->write_command_(COMFOAIR_GET_BOOTLOADER_VERSION_REQUEST, nullptr, 0);
         break;
-      case -2:
+      case -3:
         this->write_command_(COMFOAIR_GET_FIRMWARE_VERSION_REQUEST, nullptr, 0);
         break;
-      case -1:
+      case -2:
         this->write_command_(COMFOAIR_GET_BOARD_VERSION_REQUEST, nullptr, 0);
+        break;
+      case -1:
+        get_main_status_();
         break;
       case 0:
         get_fan_status_();
@@ -160,10 +163,13 @@ public:
       case 8:
         get_analog_inputs_();
         break;
+      case 9:
+        get_main_status_();
+        break;
     }
 
     update_counter_++;
-    if (update_counter_ > 8)
+    if (update_counter_ > 9)
       update_counter_ = 0;
   }
 
@@ -242,10 +248,16 @@ public:
     this->write_command_(COMFOAIR_SET_RS232_MODE_REQUEST, payload, sizeof(payload));
   }
 
-  void restore_hardware_configuration(uint8_t type = 1, uint8_t size = 1, uint8_t options = 0) {
-    // 0xD7 sets hardware status: Preheater=0, Bypass=1, Typ=type (0=Right, 1=Left), Size=size (0=Small, 1=Large CA350), Options=options (0=Basic/CC-Ease, 1=Luxe)
-    uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {0, 1, type, size, options, 0, 0, 0};
-    ESP_LOGI(TAG, "Restoring ComfoAir 350 CC-Ease Hardware Configuration (0xD7: Preheater=0, Bypass=1, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u [CC-Ease/Basic])...", type, size, options);
+  void restore_hardware_configuration(uint8_t type = 0xFF, uint8_t size = 0xFF, uint8_t options = 0xFF, uint8_t preheater = 0xFF, uint8_t bypass = 0xFF) {
+    // If not explicitly provided, take values from RAM cache (or safe defaults if uninitialized)
+    uint8_t t = (type != 0xFF) ? type : (this->hw_config_cached_ ? this->cached_type_ : 1);
+    uint8_t s = (size != 0xFF) ? size : (this->hw_config_cached_ ? this->cached_size_ : 1);
+    uint8_t o = (options != 0xFF) ? options : (this->hw_config_cached_ ? this->cached_options_ : 0);
+    uint8_t p = (preheater != 0xFF) ? preheater : (this->hw_config_cached_ ? this->cached_preheater_ : 0);
+    uint8_t b = (bypass != 0xFF) ? bypass : (this->hw_config_cached_ ? this->cached_bypass_ : 1);
+
+    uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {p, b, t, s, o, 0, 0, 0};
+    ESP_LOGI(TAG, "Restoring ComfoAir Hardware Config from RAM cache (0xD7: Preheater=%u, Bypass=%u, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u)...", p, b, t, s, o);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, payload, sizeof(payload));
   }
 
@@ -282,7 +294,7 @@ public:
   }
 
   void full_factory_reset_and_restore_hardware() {
-    ESP_LOGI(TAG, "=== WYKONUJE PELNY RESET FABRYCZNY I USTAWIANIE KONFIGURACJI SPRZETOWEJ ===");
+    ESP_LOGI(TAG, "=== WYKONUJE PELNY RESET FABRYCZNY I PRZYWRACANIE KONFIGURACJI Z PAMIECI RAM ===");
     // 1. Reset parametrow EEPROM do fabrycznych (bledy=1, ustawienia=1, autotest=0, filtr=1)
     uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {1, 1, 0, 1};
     ESP_LOGI(TAG, "1. Resetowanie parametrow do fabrycznych (0xDB [1,1,0,1])...");
@@ -292,10 +304,15 @@ public:
     ESP_LOGI(TAG, "2. Wyjscie z trybu testowego (0x19)...");
     this->write_command_(COMFOAIR_SET_TEST_MODE_END_REQUEST, nullptr, 0);
 
-    // 3. Zapis wlasciwej konfiguracji sprzetowej w EEPROM:
-    // Preheater=0, Bypass=1, Typ=1 (Lewa), Size=1 (Large / CA350), Options=0 (CC-Ease basic)
-    uint8_t hw_payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {0, 1, 1, 1, 0, 0, 0, 0};
-    ESP_LOGI(TAG, "3. Zapis konfiguracji sprzetowej (0xD7: Preheater=0, Bypass=1, Typ=1 [Lewa], Size=1 [CA350], Options=0 [CC-Ease basic])...");
+    // 3. Zapis wlasciwej konfiguracji sprzetowej z RAM cache
+    uint8_t t = this->hw_config_cached_ ? this->cached_type_ : 1;
+    uint8_t s = this->hw_config_cached_ ? this->cached_size_ : 1;
+    uint8_t o = this->hw_config_cached_ ? this->cached_options_ : 0;
+    uint8_t p = this->hw_config_cached_ ? this->cached_preheater_ : 0;
+    uint8_t b = this->hw_config_cached_ ? this->cached_bypass_ : 1;
+
+    uint8_t hw_payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {p, b, t, s, o, 0, 0, 0};
+    ESP_LOGI(TAG, "3. Zapis konfiguracji sprzetowej z RAM (0xD7: Preheater=%u, Bypass=%u, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u)...", p, b, t, s, o);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, hw_payload, sizeof(hw_payload));
 
     // 4. Ustawienie trybu RS232 na 0 (Normalny / autonomiczny - przelacznik biegow Kincony)
@@ -559,6 +576,18 @@ protected:
       case COMFOAIR_GET_MAIN_STATUS_RESPONSE: {
         ESP_LOGI(TAG, "0xD6 Main Status: Preheater=%u, Bypass=%u, Type=%u, Size=%u, Options=%u",
                  msg[0], msg[1], msg[2], msg[3], msg[4]);
+        if (msg[2] != 0xFF && msg[3] != 0xFF) {
+          this->cached_preheater_ = msg[0];
+          this->cached_bypass_ = msg[1];
+          this->cached_type_ = msg[2];
+          this->cached_size_ = msg[3];
+          this->cached_options_ = msg[4];
+          this->hw_config_cached_ = true;
+          ESP_LOGD(TAG, "Hardware config cached in RAM: Preheater=%u, Bypass=%u, Typ=%u, Size=%u, Options=%u",
+                   this->cached_preheater_, this->cached_bypass_, this->cached_type_, this->cached_size_, this->cached_options_);
+        } else {
+          ESP_LOGW(TAG, "ComfoAir returned unconfigured status (Type=0xFF, Size=0xFF). Preserving safe defaults in RAM.");
+        }
         break;
       }
       case COMFOAIR_GET_SENSOR_DATA_RESPONSE: {
@@ -575,6 +604,17 @@ protected:
                  msg[0], msg[1], msg[2], msg[10],
                  msg[3], msg[4], msg[5], msg[11],
                  msg[6], msg[7], msg[8]);
+
+        // Cache programmed stage percentages in RAM
+        this->cached_ex_levels_[0] = msg[0];
+        this->cached_ex_levels_[1] = msg[1];
+        this->cached_ex_levels_[2] = msg[2];
+        this->cached_ex_levels_[3] = msg[10];
+        this->cached_su_levels_[0] = msg[3];
+        this->cached_su_levels_[1] = msg[4];
+        this->cached_su_levels_[2] = msg[5];
+        this->cached_su_levels_[3] = msg[11];
+        this->ventilation_levels_cached_ = true;
 
         if (this->return_air_level != nullptr) {
           this->return_air_level->publish_state(msg[6]);
@@ -676,6 +716,12 @@ protected:
         break;
       }
       case COMFOAIR_GET_DELAYS_RESPONSE: {
+        this->cached_delay_bath_on_ = msg[0];
+        this->cached_delay_bath_off_ = msg[1];
+        this->cached_delay_boost_ = msg[2];
+        this->cached_delay_filter_weeks_ = msg[3];
+        this->delays_cached_ = true;
+
         if (this->delay_bathroom_switch_on != nullptr) this->delay_bathroom_switch_on->publish_state(msg[0]);
         if (this->delay_bathroom_switch_off != nullptr) this->delay_bathroom_switch_off->publish_state(msg[1]);
         if (this->delay_boost != nullptr) this->delay_boost->publish_state(msg[2]);
@@ -798,6 +844,11 @@ protected:
       ESP_LOGD(TAG, "getting sensor data");
       this->write_command_(COMFOAIR_GET_SENSOR_DATA_REQUEST, nullptr, 0);
     }
+  }
+
+  void get_main_status_() {
+    ESP_LOGD(TAG, "getting main status");
+    this->write_command_(COMFOAIR_GET_MAIN_STATUS_REQUEST, nullptr, 0);
   }
 
   void get_ventilation_level_() {
@@ -925,14 +976,40 @@ protected:
 
   uint8_t data_[64]{0};
   uint8_t data_index_{0};
-  int8_t update_counter_{-3};
+  int8_t update_counter_{-4};
   uint32_t last_auto_balance_{0};
+
+  // Live cached EEPROM configuration in RAM (fetched upon first connection & kept in sync)
+  bool hw_config_cached_{false};
+  uint8_t cached_preheater_{0};
+  uint8_t cached_bypass_{1};
+  uint8_t cached_type_{1};      // 1 = Left, 0/2 = Right
+  uint8_t cached_size_{1};      // 1 = Large (CA350), 0 = Small
+  uint8_t cached_options_{0};   // 0 = CC-Ease basic, 1 = Luxe
+
+  bool ventilation_levels_cached_{false};
+  uint8_t cached_ex_levels_[4]{15, 40, 70, 90};
+  uint8_t cached_su_levels_[4]{15, 40, 70, 90};
+
+  bool delays_cached_{false};
+  uint8_t cached_delay_bath_on_{0};
+  uint8_t cached_delay_bath_off_{30};
+  uint8_t cached_delay_boost_{0};
+  uint8_t cached_delay_filter_weeks_{30};
 
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
   std::string name;
   void set_name(const std::string &name) { this->name = name; }
+
+public:
+  uint8_t get_cached_type() const { return this->cached_type_; }
+  uint8_t get_cached_size() const { return this->cached_size_; }
+  uint8_t get_cached_preheater() const { return this->cached_preheater_; }
+  uint8_t get_cached_bypass() const { return this->cached_bypass_; }
+  uint8_t get_cached_options() const { return this->cached_options_; }
+  bool is_hw_config_cached() const { return this->hw_config_cached_; }
 
 public: 
   sensor::Sensor *fan_supply_percentage{nullptr};

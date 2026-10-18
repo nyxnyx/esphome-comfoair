@@ -8,11 +8,27 @@
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/components/climate/climate_traits.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/core/preferences.h"
 #include "messages.h"
 
 namespace esphome {
 namespace comfoair {
 class ComfoAirComponent;
+
+struct ComfoAirSavedSettings {
+  uint8_t preheater;
+  uint8_t bypass;
+  uint8_t type;
+  uint8_t size;
+  uint8_t options;
+  uint8_t ex_levels[4];
+  uint8_t su_levels[4];
+  uint8_t delay_bath_on;
+  uint8_t delay_bath_off;
+  uint8_t delay_boost;
+  uint8_t delay_filter_weeks;
+  uint8_t initialized;
+};
 
 class ComfoAirAutoBalanceSwitch : public switch_::Switch, public Component {
  public:
@@ -35,6 +51,31 @@ public:
   Climate(), 
   PollingComponent(600),
   UARTDevice() { }
+
+  void setup() override {
+    this->pref_ = global_preferences->make_preference<ComfoAirSavedSettings>(2849182947UL, true);
+    ComfoAirSavedSettings saved{};
+    if (this->pref_.load(&saved) && saved.initialized == 0xAA) {
+      this->cached_preheater_ = saved.preheater;
+      this->cached_bypass_ = saved.bypass;
+      this->cached_type_ = saved.type;
+      this->cached_size_ = saved.size;
+      this->cached_options_ = saved.options;
+      memcpy(this->cached_ex_levels_, saved.ex_levels, sizeof(this->cached_ex_levels_));
+      memcpy(this->cached_su_levels_, saved.su_levels, sizeof(this->cached_su_levels_));
+      this->cached_delay_bath_on_ = saved.delay_bath_on;
+      this->cached_delay_bath_off_ = saved.delay_bath_off;
+      this->cached_delay_boost_ = saved.delay_boost;
+      this->cached_delay_filter_weeks_ = saved.delay_filter_weeks;
+      this->hw_config_cached_ = true;
+      this->ventilation_levels_cached_ = true;
+      this->delays_cached_ = true;
+      ESP_LOGI(TAG, "Restored ComfoAir hardware settings from ESP32 NVS Flash: Type=%u [1=Left], Size=%u [1=Large CA350], Bypass=%u, Preheater=%u, Options=%u",
+               this->cached_type_, this->cached_size_, this->cached_bypass_, this->cached_preheater_, this->cached_options_);
+    } else {
+      ESP_LOGI(TAG, "No saved ComfoAir settings in ESP32 flash yet; will persist once queried from central unit.");
+    }
+  }
 
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override {
@@ -259,6 +300,14 @@ public:
     uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {p, b, t, s, o, 0, 0, 0};
     ESP_LOGI(TAG, "Restoring ComfoAir Hardware Config from RAM cache (0xD7: Preheater=%u, Bypass=%u, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u)...", p, b, t, s, o);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, payload, sizeof(payload));
+
+    this->cached_type_ = t;
+    this->cached_size_ = s;
+    this->cached_options_ = o;
+    this->cached_preheater_ = p;
+    this->cached_bypass_ = b;
+    this->hw_config_cached_ = true;
+    this->save_settings_to_flash_();
   }
 
   void query_versions() {
@@ -379,11 +428,11 @@ protected:
 
   void set_comfort_temperature_(float temperature) {
     if (temperature < 12.0f || temperature > 29.0f) {
-      ESP_LOGI(TAG, "Ignoring invalid temperature request: %i", temperature);
+      ESP_LOGI(TAG, "Ignoring invalid temperature request: %.1f", temperature);
       return;
     }
 
-    ESP_LOGI(TAG, "Setting temperature to: %i", temperature);
+    ESP_LOGI(TAG, "Setting temperature to: %.1f", temperature);
     {
       uint8_t command[COMFOAIR_SET_COMFORT_TEMPERATURE_LENGTH] = {(uint8_t) ((temperature + 20.0f) * 2.0f)};
       this->write_command_(COMFOAIR_SET_COMFORT_TEMPERATURE_REQUEST, command, sizeof(command));
@@ -485,6 +534,37 @@ protected:
     return {};
   }
 
+  void publish_temperatures_(float t1, float t2, float t3, float t4) {
+    // Zehnder ComfoAir internal NTC channels:
+    // Right-hand unit (Type 0 / 2):
+    //   T1 = Outside Air (intake)
+    //   T2 = Supply Air (fresh air into house)
+    //   T3 = Return Air (stale air from rooms)
+    //   T4 = Exhaust Air (stale air to outside)
+    // Left-hand unit (Type 1):
+    //   Physical duct paths and fan scrolls are mirrored.
+    //   T1 = Supply Air (fresh air into house)
+    //   T2 = Exhaust Air (stale air to outside)
+    //   T3 = Outside Air (fresh intake from outside)
+    //   T4 = Return Air (stale air from rooms)
+    float outside = t1;
+    float supply = t2;
+    float return_air = t3;
+    float exhaust = t4;
+
+    if (this->cached_type_ == 1) {
+      supply = t1;
+      exhaust = t2;
+      outside = t3;
+      return_air = t4;
+    }
+
+    if (this->outside_air_temperature != nullptr) this->outside_air_temperature->publish_state(outside);
+    if (this->supply_air_temperature != nullptr) this->supply_air_temperature->publish_state(supply);
+    if (this->return_air_temperature != nullptr) this->return_air_temperature->publish_state(return_air);
+    if (this->exhaust_air_temperature != nullptr) this->exhaust_air_temperature->publish_state(exhaust);
+  }
+
   void parse_data_() {
     this->status_clear_warning();
     uint8_t *msg = &this->data_[COMFOAIR_MSG_HEAD_LENGTH];
@@ -558,15 +638,12 @@ protected:
         break;
       }
       case COMFOAIR_GET_TEMPERATURE_RESPONSE: {
-        ESP_LOGI(TAG, "0x10 Physical Temps: T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f",
-                 (float) msg[0] / 2.0f - 20.0f,
-                 (float) msg[1] / 2.0f - 20.0f,
-                 (float) msg[2] / 2.0f - 20.0f,
-                 (float) msg[3] / 2.0f - 20.0f);
-        if (this->outside_air_temperature != nullptr) this->outside_air_temperature->publish_state((float) msg[0] / 2.0f - 20.0f);
-        if (this->supply_air_temperature != nullptr) this->supply_air_temperature->publish_state((float) msg[1] / 2.0f - 20.0f);
-        if (this->return_air_temperature != nullptr) this->return_air_temperature->publish_state((float) msg[2] / 2.0f - 20.0f);
-        if (this->exhaust_air_temperature != nullptr) this->exhaust_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
+        float t1 = (float) msg[0] / 2.0f - 20.0f;
+        float t2 = (float) msg[1] / 2.0f - 20.0f;
+        float t3 = (float) msg[2] / 2.0f - 20.0f;
+        float t4 = (float) msg[3] / 2.0f - 20.0f;
+        ESP_LOGI(TAG, "0x10 Physical Temps: T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f", t1, t2, t3, t4);
+        this->publish_temperatures_(t1, t2, t3, t4);
         break;
       }
       case 0x1A: {
@@ -583,7 +660,8 @@ protected:
           this->cached_size_ = msg[3];
           this->cached_options_ = msg[4];
           this->hw_config_cached_ = true;
-          ESP_LOGD(TAG, "Hardware config cached in RAM: Preheater=%u, Bypass=%u, Typ=%u, Size=%u, Options=%u",
+          this->save_settings_to_flash_();
+          ESP_LOGD(TAG, "Hardware config cached in RAM & NVS: Preheater=%u, Bypass=%u, Typ=%u, Size=%u, Options=%u",
                    this->cached_preheater_, this->cached_bypass_, this->cached_type_, this->cached_size_, this->cached_options_);
         } else {
           ESP_LOGW(TAG, "ComfoAir returned unconfigured status (Type=0xFF, Size=0xFF). Preserving safe defaults in RAM.");
@@ -605,7 +683,7 @@ protected:
                  msg[3], msg[4], msg[5], msg[11],
                  msg[6], msg[7], msg[8]);
 
-        // Cache programmed stage percentages in RAM
+        // Cache programmed stage percentages in RAM and persist to flash
         this->cached_ex_levels_[0] = msg[0];
         this->cached_ex_levels_[1] = msg[1];
         this->cached_ex_levels_[2] = msg[2];
@@ -615,6 +693,7 @@ protected:
         this->cached_su_levels_[2] = msg[5];
         this->cached_su_levels_[3] = msg[11];
         this->ventilation_levels_cached_ = true;
+        this->save_settings_to_flash_();
 
         if (this->return_air_level != nullptr) {
           this->return_air_level->publish_state(msg[6]);
@@ -721,6 +800,7 @@ protected:
         this->cached_delay_boost_ = msg[2];
         this->cached_delay_filter_weeks_ = msg[3];
         this->delays_cached_ = true;
+        this->save_settings_to_flash_();
 
         if (this->delay_bathroom_switch_on != nullptr) this->delay_bathroom_switch_on->publish_state(msg[0]);
         if (this->delay_bathroom_switch_off != nullptr) this->delay_bathroom_switch_off->publish_state(msg[1]);
@@ -748,28 +828,16 @@ protected:
         this->target_temperature = (float) msg[0] / 2.0f - 20.0f;
         this->publish_state();
 
-        ESP_LOGI(TAG, "0xD2 Temps: Comfort=%.1f C, Mask=0x%02X, T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f",
-                 (float) msg[0] / 2.0f - 20.0f, msg[5],
-                 (float) msg[1] / 2.0f - 20.0f,
-                 (float) msg[2] / 2.0f - 20.0f,
-                 (float) msg[4] / 2.0f - 20.0f,
-                 (float) msg[3] / 2.0f - 20.0f);
+        float t1 = (float) msg[1] / 2.0f - 20.0f;
+        float t2 = (float) msg[2] / 2.0f - 20.0f;
+        float t3 = (float) msg[3] / 2.0f - 20.0f;
+        float t4 = (float) msg[4] / 2.0f - 20.0f;
 
-        // outside air (T1)
-        if (this->outside_air_temperature != nullptr && (msg[5] & 0x01)) {
-          this->outside_air_temperature->publish_state((float) msg[1] / 2.0f - 20.0f);
-        }
-        // supply air (T2)
-        if (this->supply_air_temperature != nullptr && (msg[5] & 0x02)) {
-          this->supply_air_temperature->publish_state((float) msg[2] / 2.0f - 20.0f);
-        }
-        // exhaust air (T4)
-        if (this->exhaust_air_temperature != nullptr && (msg[5] & 0x04)) {
-          this->exhaust_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
-        }
-        // return air (T3)
-        if (this->return_air_temperature != nullptr && (msg[5] & 0x08)) {
-          this->return_air_temperature->publish_state((float) msg[4] / 2.0f - 20.0f);
+        ESP_LOGI(TAG, "0xD2 Temps: Comfort=%.1f C, Mask=0x%02X, T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f",
+                 this->target_temperature, msg[5], t1, t2, t3, t4);
+
+        if ((msg[5] & 0x0F) == 0x0F) {
+          this->publish_temperatures_(t1, t2, t3, t4);
         }
 
         // EWT
@@ -1000,8 +1068,25 @@ protected:
   uint8_t bootloader_version_[13]{0};
   uint8_t firmware_version_[13]{0};
   uint8_t connector_board_version_[14]{0};
-  std::string name;
-  void set_name(const std::string &name) { this->name = name; }
+  ESPPreferenceObject pref_;
+
+  void save_settings_to_flash_() {
+    ComfoAirSavedSettings to_save{};
+    to_save.preheater = this->cached_preheater_;
+    to_save.bypass = this->cached_bypass_;
+    to_save.type = this->cached_type_;
+    to_save.size = this->cached_size_;
+    to_save.options = this->cached_options_;
+    memcpy(to_save.ex_levels, this->cached_ex_levels_, sizeof(to_save.ex_levels));
+    memcpy(to_save.su_levels, this->cached_su_levels_, sizeof(to_save.su_levels));
+    to_save.delay_bath_on = this->cached_delay_bath_on_;
+    to_save.delay_bath_off = this->cached_delay_bath_off_;
+    to_save.delay_boost = this->cached_delay_boost_;
+    to_save.delay_filter_weeks = this->cached_delay_filter_weeks_;
+    to_save.initialized = 0xAA;
+    this->pref_.save(&to_save);
+    ESP_LOGD(TAG, "Saved ComfoAir configuration to ESP32 Flash/NVS.");
+  }
 
 public:
   uint8_t get_cached_type() const { return this->cached_type_; }

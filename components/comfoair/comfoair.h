@@ -140,13 +140,13 @@ public:
         get_valve_status_();
         break;
       case 2:
-        get_sensor_data_();
-        break;
-      case 3:
         get_ventilation_level_();
         break;
-      case 4:
+      case 3:
         get_temperatures_();
+        break;
+      case 4:
+        get_temperature_();
         break;
       case 5:
         get_error_status_();
@@ -155,24 +155,15 @@ public:
         get_bypass_control_status_();
         break;
       case 7:
-        get_operating_hours_();
-        break;
-      case 8:
-        get_preheater_status_();
-        break;
-      case 9:
         get_delays_();
         break;
-      case 10:
+      case 8:
         get_analog_inputs_();
-        break;
-      case 11:
-        get_ewt_reheater_status_();
         break;
     }
 
     update_counter_++;
-    if (update_counter_ > 11)
+    if (update_counter_ > 8)
       update_counter_ = 0;
   }
 
@@ -251,20 +242,96 @@ public:
     this->write_command_(COMFOAIR_SET_RS232_MODE_REQUEST, payload, sizeof(payload));
   }
 
-  void set_main_status(uint8_t flags, uint8_t party_timer = 0, uint8_t chimney_timer = 0) {
-    uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {
-      flags, party_timer, chimney_timer, 0, 0, 0, 0, 0
-    };
-    ESP_LOGI(TAG, "Setting main status: flags=0x%02X, party=%u, chimney=%u", flags, party_timer, chimney_timer);
+  void restore_hardware_configuration(uint8_t type = 1, uint8_t size = 1, uint8_t options = 0) {
+    // 0xD7 sets hardware status: Preheater=0, Bypass=1, Typ=type (0=Right, 1=Left), Size=size (0=Small, 1=Large CA350), Options=options (0=Basic/CC-Ease, 1=Luxe)
+    uint8_t payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {0, 1, type, size, options, 0, 0, 0};
+    ESP_LOGI(TAG, "Restoring ComfoAir 350 CC-Ease Hardware Configuration (0xD7: Preheater=0, Bypass=1, Typ=%u [1=Left], Size=%u [1=Large CA350], Options=%u [CC-Ease/Basic])...", type, size, options);
     this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, payload, sizeof(payload));
   }
 
+  void query_versions() {
+    ESP_LOGI(TAG, "Querying Firmware & Board Versions (0x69, 0xA1)...");
+    this->write_command_(COMFOAIR_GET_FIRMWARE_VERSION_REQUEST, nullptr, 0);
+    this->write_command_(COMFOAIR_GET_BOARD_VERSION_REQUEST, nullptr, 0);
+  }
+
+  void reset_faults() {
+    // 0xDB resets: Byte 0=faults/errors, Byte 1=settings, Byte 2=self-test, Byte 3=filter
+    uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {1, 0, 0, 0};
+    ESP_LOGI(TAG, "Resetting faults and errors on ComfoAir 350 (0xDB)...");
+    this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
+  }
+
+  void factory_reset() {
+    uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {0, 1, 0, 0};
+    ESP_LOGI(TAG, "Factory Resetting ComfoAir 350 Settings (0xDB: [0,1,0,0])...");
+    this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
+  }
+
+  void start_self_test() {
+    uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {0, 0, 1, 0};
+    ESP_LOGI(TAG, "Starting ComfoAir 350 Self-Test (0xDB: [0,0,1,0])...");
+    this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
+  }
+
+  void end_test_mode() {
+    uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {0, 0, 0, 0};
+    ESP_LOGI(TAG, "Ending ComfoAir Test Mode & Clearing Self-Test (0xDB [0,0,0,0] & 0x19)...");
+    this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
+    this->write_command_(COMFOAIR_SET_TEST_MODE_END_REQUEST, nullptr, 0);
+  }
+
+  void full_factory_reset_and_restore_hardware() {
+    ESP_LOGI(TAG, "=== WYKONUJE PELNY RESET FABRYCZNY I USTAWIANIE KONFIGURACJI SPRZETOWEJ ===");
+    // 1. Reset parametrow EEPROM do fabrycznych (bledy=1, ustawienia=1, autotest=0, filtr=1)
+    uint8_t reset_cmd[COMFOAIR_SET_RESET_LENGTH] = {1, 1, 0, 1};
+    ESP_LOGI(TAG, "1. Resetowanie parametrow do fabrycznych (0xDB [1,1,0,1])...");
+    this->write_command_(COMFOAIR_SET_RESET_REQUEST, reset_cmd, sizeof(reset_cmd));
+
+    // 2. Wyjscie z trybu testowego
+    ESP_LOGI(TAG, "2. Wyjscie z trybu testowego (0x19)...");
+    this->write_command_(COMFOAIR_SET_TEST_MODE_END_REQUEST, nullptr, 0);
+
+    // 3. Zapis wlasciwej konfiguracji sprzetowej w EEPROM:
+    // Preheater=0, Bypass=1, Typ=1 (Lewa), Size=1 (Large / CA350), Options=0 (CC-Ease basic)
+    uint8_t hw_payload[COMFOAIR_SET_MAIN_STATUS_LENGTH] = {0, 1, 1, 1, 0, 0, 0, 0};
+    ESP_LOGI(TAG, "3. Zapis konfiguracji sprzetowej (0xD7: Preheater=0, Bypass=1, Typ=1 [Lewa], Size=1 [CA350], Options=0 [CC-Ease basic])...");
+    this->write_command_(COMFOAIR_SET_MAIN_STATUS_REQUEST, hw_payload, sizeof(hw_payload));
+
+    // 4. Ustawienie trybu RS232 na 0 (Normalny / autonomiczny - przelacznik biegow Kincony)
+    uint8_t mode_payload[COMFOAIR_SET_RS232_MODE_LENGTH] = {0};
+    ESP_LOGI(TAG, "4. Przywrocenie trybu RS232 na 0 (Normalny / sterowanie przelacznikiem)...");
+    this->write_command_(COMFOAIR_SET_RS232_MODE_REQUEST, mode_payload, sizeof(mode_payload));
+  }
+
+  void query_main_status() {
+    ESP_LOGI(TAG, "Querying Main Status (0xD5)...");
+    this->write_command_(COMFOAIR_GET_MAIN_STATUS_REQUEST, nullptr, 0);
+  }
+
+  void set_fan_level(uint8_t level) {
+    this->set_level_(level);
+  }
+
+  void set_comfort_temperature(float temperature) {
+    this->set_comfort_temperature_(temperature);
+  }
+
   void set_bypass_mode(uint8_t mode) {
-    // 0 = Auto, 1 = Force Close, 2 = Force Open
-    uint8_t flags = 0;
-    if (mode == 1) flags = 0x02; // forced close
-    else if (mode == 2) flags = 0x04; // forced open
-    this->set_main_status(flags);
+    // Zehnder CA350 bypass control via comfort temperature setpoint:
+    // 0 = Auto: default comfort setpoint (21.0 C)
+    // 1 = Force Close: comfort setpoint 29.0 C (heat retention - keeps bypass strictly closed)
+    // 2 = Force Open: comfort setpoint 12.0 C (cooling - opens bypass)
+    if (mode == 1) {
+      ESP_LOGI(TAG, "Bypass mode: Force Close (setting comfort temp to 29.0 C)");
+      this->set_comfort_temperature_(29.0f);
+    } else if (mode == 2) {
+      ESP_LOGI(TAG, "Bypass mode: Force Open (setting comfort temp to 12.0 C)");
+      this->set_comfort_temperature_(12.0f);
+    } else {
+      ESP_LOGI(TAG, "Bypass mode: Auto (setting comfort temp to 21.0 C)");
+      this->set_comfort_temperature_(21.0f);
+    }
   }
 
   void set_ewt(uint8_t ewt_low, uint8_t ewt_high, uint8_t reheater_temp = 0) {
@@ -414,25 +481,38 @@ protected:
       case COMFOAIR_GET_FIRMWARE_VERSION_RESPONSE: {
         size_t len = std::min<size_t>(sizeof(this->firmware_version_), this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
         memcpy(this->firmware_version_, msg, len);
+        ESP_LOGI(TAG, "0x6A Firmware Version: %.*s (len=%u)", (int)len, msg, (unsigned)len);
         break;
       }
       case COMFOAIR_GET_BOARD_VERSION_RESPONSE: {
         size_t len = std::min<size_t>(sizeof(this->connector_board_version_), this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX]);
         memcpy(this->connector_board_version_, msg, len);
+        ESP_LOGI(TAG, "0xA2 Board Version: %.*s (len=%u)", (int)len, msg, (unsigned)len);
         break;
       }
       case COMFOAIR_GET_FAN_STATUS_RESPONSE: {
+          uint16_t raw_su = this->get_uint16_(2);
+          uint16_t raw_ex = this->get_uint16_(4);
+          ESP_LOGI(TAG, "0x0C Fan Status: Supply=%u%% (raw=%u), Exhaust=%u%% (raw=%u)", msg[0], raw_su, msg[1], raw_ex);
           if (this->fan_supply_percentage != nullptr) {
             this->fan_supply_percentage->publish_state(msg[0]);
           }
           if (this->fan_exhaust_percentage != nullptr) {
             this->fan_exhaust_percentage->publish_state(msg[1]);
           }
+          if (this->supply_air_level != nullptr) {
+            this->supply_air_level->publish_state(msg[0]);
+          }
+          if (this->return_air_level != nullptr) {
+            this->return_air_level->publish_state(msg[1]);
+          }
           if (this->fan_speed_supply != nullptr) {
-            this->fan_speed_supply->publish_state(1875000.0f / this->get_uint16_(2));
+            uint16_t raw_su = this->get_uint16_(2);
+            this->fan_speed_supply->publish_state((raw_su > 0 && raw_su != 0xFFFF) ? (1875000.0f / raw_su) : 0.0f);
           }
           if (this->fan_speed_exhaust != nullptr) {
-            this->fan_speed_exhaust->publish_state(1875000.0f / this->get_uint16_(4));
+            uint16_t raw_ex = this->get_uint16_(4);
+            this->fan_speed_exhaust->publish_state((raw_ex > 0 && raw_ex != 0xFFFF) ? (1875000.0f / raw_ex) : 0.0f);
           }
           break;
         }
@@ -461,23 +541,24 @@ protected:
         break;
       }
       case COMFOAIR_GET_TEMPERATURE_RESPONSE: {
-
-        // T1 / outside air
-        if (this->outside_air_temperature != nullptr) {
-          this->outside_air_temperature->publish_state((float) msg[0] / 2.0f - 20.0f);
-        }
-        // T2 / supply air
-        if (this->supply_air_temperature != nullptr) {
-          this->supply_air_temperature->publish_state((float) msg[1] / 2.0f - 20.0f);
-        }
-        // T3 / return air
-        if (this->return_air_temperature != nullptr) {
-          this->return_air_temperature->publish_state((float) msg[2] / 2.0f - 20.0f);
-        }
-        // T4 / exhaust air
-        if (this->exhaust_air_temperature != nullptr) {
-          this->exhaust_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
-        }
+        ESP_LOGI(TAG, "0x10 Physical Temps: T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f",
+                 (float) msg[0] / 2.0f - 20.0f,
+                 (float) msg[1] / 2.0f - 20.0f,
+                 (float) msg[2] / 2.0f - 20.0f,
+                 (float) msg[3] / 2.0f - 20.0f);
+        if (this->outside_air_temperature != nullptr) this->outside_air_temperature->publish_state((float) msg[0] / 2.0f - 20.0f);
+        if (this->supply_air_temperature != nullptr) this->supply_air_temperature->publish_state((float) msg[1] / 2.0f - 20.0f);
+        if (this->return_air_temperature != nullptr) this->return_air_temperature->publish_state((float) msg[2] / 2.0f - 20.0f);
+        if (this->exhaust_air_temperature != nullptr) this->exhaust_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
+        break;
+      }
+      case 0x1A: {
+        ESP_LOGI(TAG, "0x1A: ComfoAir acknowledged Test Mode ended successfully");
+        break;
+      }
+      case COMFOAIR_GET_MAIN_STATUS_RESPONSE: {
+        ESP_LOGI(TAG, "0xD6 Main Status: Preheater=%u, Bypass=%u, Type=%u, Size=%u, Options=%u",
+                 msg[0], msg[1], msg[2], msg[3], msg[4]);
         break;
       }
       case COMFOAIR_GET_SENSOR_DATA_RESPONSE: {
@@ -490,7 +571,10 @@ protected:
       }
       case COMFOAIR_GET_VENTILATION_LEVEL_RESPONSE: {
 
-        ESP_LOGD(TAG, "Level %02x", msg[8]);
+        ESP_LOGI(TAG, "0xCE Levels: Ex=[%u,%u,%u,%u], Su=[%u,%u,%u,%u], CurEx=%u%%, CurSu=%u%%, Lvl=%u",
+                 msg[0], msg[1], msg[2], msg[10],
+                 msg[3], msg[4], msg[5], msg[11],
+                 msg[6], msg[7], msg[8]);
 
         if (this->return_air_level != nullptr) {
           this->return_air_level->publish_state(msg[6]);
@@ -618,23 +702,30 @@ protected:
         this->target_temperature = (float) msg[0] / 2.0f - 20.0f;
         this->publish_state();
 
-        // T1 / outside air
-        if (this->outside_air_temperature != nullptr && msg[5] & 0x01) {
+        ESP_LOGI(TAG, "0xD2 Temps: Comfort=%.1f C, Mask=0x%02X, T1=%.1f, T2=%.1f, T3=%.1f, T4=%.1f",
+                 (float) msg[0] / 2.0f - 20.0f, msg[5],
+                 (float) msg[1] / 2.0f - 20.0f,
+                 (float) msg[2] / 2.0f - 20.0f,
+                 (float) msg[4] / 2.0f - 20.0f,
+                 (float) msg[3] / 2.0f - 20.0f);
+
+        // outside air (T1)
+        if (this->outside_air_temperature != nullptr && (msg[5] & 0x01)) {
           this->outside_air_temperature->publish_state((float) msg[1] / 2.0f - 20.0f);
         }
-        // T2 / supply air
-        if (this->supply_air_temperature != nullptr && msg[5] & 0x02) {
+        // supply air (T2)
+        if (this->supply_air_temperature != nullptr && (msg[5] & 0x02)) {
           this->supply_air_temperature->publish_state((float) msg[2] / 2.0f - 20.0f);
         }
-        // T3 / exhaust air
-        if (this->return_air_temperature != nullptr && msg[5] & 0x04) {
-          this->return_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
-          this->current_temperature = (float) msg[3] / 2.0f - 20.0f;
+        // exhaust air (T4)
+        if (this->exhaust_air_temperature != nullptr && (msg[5] & 0x04)) {
+          this->exhaust_air_temperature->publish_state((float) msg[3] / 2.0f - 20.0f);
         }
-        // T4 / continued air
-        if (this->exhaust_air_temperature != nullptr && msg[5] & 0x08) {
-          this->exhaust_air_temperature->publish_state((float) msg[4] / 2.0f - 20.0f);
+        // return air (T3)
+        if (this->return_air_temperature != nullptr && (msg[5] & 0x08)) {
+          this->return_air_temperature->publish_state((float) msg[4] / 2.0f - 20.0f);
         }
+
         // EWT
         if (this->ewt_temperature != nullptr && msg[5] & 0x10) {
           this->ewt_temperature->publish_state((float) msg[6] / 2.0f - 20.0f);

@@ -216,26 +216,91 @@ public:
 
   void loop() override {
     while (this->available() != 0) {
-      if (this->data_index_ >= sizeof(this->data_)) {
-        ESP_LOGW(TAG, "ComfoAir RX buffer overflow, resetting index");
-        this->data_index_ = 0;
-      }
-      this->read_byte(&this->data_[this->data_index_]);
-      auto check = this->check_byte_();
-      if (!check.has_value()) {
+      uint8_t byte;
+      this->read_byte(&byte);
 
-        // finished
-        if (this->data_[COMFOAIR_MSG_ACK_IDX] != COMFOAIR_MSG_ACK) {
-          this->parse_data_();
+      if (this->data_index_ == 0) {
+        if (byte == COMFOAIR_MSG_PREFIX) {
+          this->data_[this->data_index_++] = byte;
         }
-        this->data_index_ = 0;
-      } else if (!*check) {
-        // wrong data
-        ESP_LOGV(TAG, "Byte %i of received data frame is invalid.", this->data_index_);
-        this->data_index_ = 0;
+        continue;
+      }
+
+      if (this->data_index_ == 1) {
+        if (byte == COMFOAIR_MSG_ACK) {
+          // ACK: 0x07 0xF3
+          this->data_index_ = 0;
+          this->in_escape_ = false;
+          continue;
+        } else if (byte == COMFOAIR_MSG_HEAD) {
+          // Head: 0x07 0xF0
+          this->data_[this->data_index_++] = byte;
+          this->in_escape_ = false;
+          continue;
+        } else if (byte == COMFOAIR_MSG_PREFIX) {
+          // Stray prefix, keep data_index_ = 1
+          this->data_[0] = COMFOAIR_MSG_PREFIX;
+          this->data_index_ = 1;
+          this->in_escape_ = false;
+          continue;
+        } else {
+          this->data_index_ = 0;
+          this->in_escape_ = false;
+          continue;
+        }
+      }
+
+      if (this->data_index_ < COMFOAIR_MSG_HEAD_LENGTH) {
+        if (this->data_index_ == 2 && byte != 0x00) {
+          this->data_index_ = 0;
+          continue;
+        }
+        this->data_[this->data_index_++] = byte;
+        continue;
+      }
+
+      // Payload / tail handling (data_index_ >= COMFOAIR_MSG_HEAD_LENGTH)
+      if (this->in_escape_) {
+        this->in_escape_ = false;
+        if (byte == COMFOAIR_MSG_PREFIX) {
+          // Escaped 0x07: "0x07 0x07" -> unescape to single 0x07
+          if (this->data_index_ < sizeof(this->data_)) {
+            this->data_[this->data_index_++] = COMFOAIR_MSG_PREFIX;
+          }
+        } else if (byte == COMFOAIR_MSG_TAIL) {
+          // End of packet: "0x07 0x0F"
+          uint8_t data_length = this->data_[COMFOAIR_MSG_DATA_LENGTH_IDX];
+          uint8_t expected_total = COMFOAIR_MSG_HEAD_LENGTH + data_length + 1; // head(5) + data(N) + checksum(1)
+          if (this->data_index_ == expected_total) {
+            uint8_t rx_checksum = this->data_[expected_total - 1];
+            uint8_t calc_checksum = comfoair_checksum_(this->data_ + 2, COMFOAIR_MSG_HEAD_LENGTH + data_length - 2);
+            if (rx_checksum == calc_checksum) {
+              this->parse_data_();
+            } else {
+              ESP_LOGW(TAG, "ComfoAir Checksum doesn't match: rx=0x%02X calc=0x%02X", rx_checksum, calc_checksum);
+              ESP_LOGW(TAG, "Frame: %s", format_hex_pretty(this->data_, this->data_index_).c_str());
+            }
+          } else {
+            ESP_LOGW(TAG, "ComfoAir Frame length mismatch: got %u, expected %u", this->data_index_, expected_total);
+          }
+          this->data_index_ = 0;
+          continue;
+        } else {
+          ESP_LOGW(TAG, "Unexpected byte after 0x07: 0x%02X", byte);
+          this->data_index_ = 0;
+          continue;
+        }
       } else {
-        // next byte
-        this->data_index_++;
+        if (byte == COMFOAIR_MSG_PREFIX) {
+          this->in_escape_ = true;
+          continue;
+        }
+        if (this->data_index_ < sizeof(this->data_)) {
+          this->data_[this->data_index_++] = byte;
+        } else {
+          ESP_LOGW(TAG, "ComfoAir RX buffer overflow, resetting");
+          this->data_index_ = 0;
+        }
       }
     }
     this->run_auto_balance_();
@@ -272,6 +337,17 @@ public:
              ex_absent, ex_low, ex_medium, ex_high,
              su_absent, su_low, su_medium, su_high, current_speed);
     this->write_command_(COMFOAIR_SET_VENTILATION_LEVEL_REQUEST, payload, sizeof(payload));
+
+    if (current_speed > 0) {
+      this->set_level_(current_speed);
+      switch (current_speed) {
+        case 1: this->fan_mode = climate::CLIMATE_FAN_OFF; break;
+        case 2: this->fan_mode = climate::CLIMATE_FAN_LOW; break;
+        case 3: this->fan_mode = climate::CLIMATE_FAN_MEDIUM; break;
+        case 4: this->fan_mode = climate::CLIMATE_FAN_HIGH; break;
+      }
+      this->publish_state();
+    }
   }
 
   void set_delays(uint8_t bath_on, uint8_t bath_off, uint8_t boost, uint8_t filter_weeks) {
@@ -1049,6 +1125,7 @@ protected:
 
   uint8_t data_[64]{0};
   uint8_t data_index_{0};
+  bool in_escape_{false};
   int8_t update_counter_{-4};
   uint32_t last_auto_balance_{0};
 
